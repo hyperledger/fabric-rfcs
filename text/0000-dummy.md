@@ -27,8 +27,8 @@ teaching it to another Fabric developer. That generally means:
   concretely as possible.
 - If applicable, provide sample error messages, deprecation warnings, or
   migration guidance.
-- If applicable, describe the differences between teaching this to established
-  and new Fabric developers.
+- If applicable, describe the differences between teaching this to existing
+  Sawtooth programmers and new Fabric programmers.
 - If applicable, describe any changes that may affect the security of
   communications or administration.
 
