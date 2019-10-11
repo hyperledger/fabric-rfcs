@@ -116,7 +116,7 @@ not squash or rebase commits after they are visible on the pull request.
 period" (FCP), along with a *disposition* for the RFC (merge, close, or
 postpone).
   - This step is taken when enough of the tradeoffs have been discussed that
-  the subteam is in a position to make a decision. That does not require
+  the maintainers are in a position to make a decision. That does not require
   consensus amongst all participants in the RFC thread (which is usually
   impossible). However, the argument supporting the disposition on the RFC
   needs to have already been clearly articulated, and there should not be a
@@ -127,9 +127,8 @@ postpone).
   - For RFCs with lengthy discussion, the motion to FCP is usually preceded by
   a *summary comment* trying to lay out the current state of the discussion and
   major trade-offs/points of disagreement.
-  - Before actually entering FCP, *all* members of the subteam must sign off;
-  this is often the point at which many subteam members first review the RFC in
-  full depth.
+  - Before actually entering FCP, *all* maintainers must sign off; this is
+  often the point at which many maintainers first review the RFC in full depth.
 - The FCP lasts one week, or seven calendar days. It is also advertised widely,
 e.g. in the [Fabric Mailing List](https://lists.hyperledger.org/g/fabric/topics).
 This way all stakeholders have a chance to lodge any final objections before a
