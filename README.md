@@ -90,7 +90,7 @@ merged into the RFC repository as a markdown file. At that point the RFC is
 "active" and may be implemented with the goal of eventual inclusion into
 Fabric.
 
-- Fork [the RFC repository](https://github.com/hyperledger/fabric-rfcs)
+- Fork [the RFC repository](https://github.com/hyperledger/fabric-rfcs).
 - Copy `0000-template.md` to `text/0000-my-feature.md`, where "my-feature" is
 descriptive. Don't assign an RFC number yet.
 - Fill in the RFC. Put care into the details — RFCs that do not present
