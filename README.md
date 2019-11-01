@@ -107,6 +107,10 @@ identifying stakeholders and obstacles.
 - The maintainers will discuss the RFC pull request, as much as possible in the
 comment thread of the pull request itself. Offline discussion will be
 summarized on the pull request comment thread.
+- A good way to build consensus on a RFC pull request is to summarize the RFC on a
+community contributor meeting. Coordinate with a maintainer to get on a contributor
+meeting agenda. While this is not necessary, it may help to foster sufficient
+consensus such that the RFC can proceed to final comment period.
 - RFCs rarely go through this process unchanged, especially as alternatives and
 drawbacks are shown. You can make edits, big and small, to the RFC to clarify
 or change the design, but make changes as new commits to the pull request, and
