@@ -1,6 +1,7 @@
 - Feature Name: (fill me in with a unique identifier, my_awesome_feature)
 - Start Date: (fill me in with today's date, YYYY-MM-DD)
 - RFC PR: (leave this empty)
+- Fabric Component: (fill me in with underlined fabric component, core, orderer/consensus and etc.)
 - Fabric Issue: (leave this empty)
 
 # Summary
@@ -54,7 +55,8 @@ explain more fully how the detailed proposal makes those examples work.
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we *not* do this?
+Why should we *not* do this? Are there any risks that must be considered along with
+this rfc. 
 
 # Rationale and alternatives
 [alternatives]: #alternatives
@@ -90,6 +92,23 @@ Note that while precedent set by other distributed ledgers is some motivation,
 it does not on its own motivate an RFC.  Please also take into consideration
 that Fabric sometimes intentionally diverges from common distributed
 ledger/blockchain features.
+
+# Testing
+[testing]: #testing
+
+- What kinds of test development and execution will be required in order
+to validate this proposal, beyond the usual mandatory unit tests?
+- List integration test scenarios which will outline correctness of proposed functionality.
+
+# Dependencies
+[dependencies]: #dependencies
+
+- Describe all dependencies that this proposal might have on other RFCs, known JIRA issues,
+Hyperledger Fabric components.  Dependencies upon RFCs or issues should be recorded as 
+links in the proposals issue itself.
+
+- List down related RFCs proposals that depend upon current RFC, and likewise make sure 
+they are also linked to this RFC.
 
 # Unresolved questions
 [unresolved]: #unresolved-questions
