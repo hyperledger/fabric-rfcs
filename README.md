@@ -127,8 +127,9 @@ postpone).
   - For RFCs with lengthy discussion, the motion to FCP is usually preceded by
   a *summary comment* trying to lay out the current state of the discussion and
   major trade-offs/points of disagreement.
-  - Before actually entering FCP, *all* maintainers must sign off; this is
-  often the point at which many maintainers first review the RFC in full depth.
+  - Before actually entering FCP, *the majority* of maintainers must sign off;
+  this is often the point at which many maintainers first review the RFC in
+  full depth.
 - The FCP lasts one week, or seven calendar days. It is also advertised widely,
 e.g. in the [Fabric Mailing List](https://lists.hyperledger.org/g/fabric/topics).
 This way all stakeholders have a chance to lodge any final objections before a
