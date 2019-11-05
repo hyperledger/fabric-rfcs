@@ -90,7 +90,7 @@ merged into the RFC repository as a markdown file. At that point the RFC is
 "active" and may be implemented with the goal of eventual inclusion into
 Fabric.
 
-- Fork [the RFC repository](https://github.com/hyperledger/fabric-rfcs)
+- Fork [the RFC repository](https://github.com/hyperledger/fabric-rfcs).
 - Copy `0000-template.md` to `text/0000-my-feature.md`, where "my-feature" is
 descriptive. Don't assign an RFC number yet.
 - Fill in the RFC. Put care into the details — RFCs that do not present
@@ -120,7 +120,7 @@ not squash or rebase commits after they are visible on the pull request.
 period" (FCP), along with a *disposition* for the RFC (merge, close, or
 postpone).
   - This step is taken when enough of the tradeoffs have been discussed that
-  the subteam is in a position to make a decision. That does not require
+  the maintainers are in a position to make a decision. That does not require
   consensus amongst all participants in the RFC thread (which is usually
   impossible). However, the argument supporting the disposition on the RFC
   needs to have already been clearly articulated, and there should not be a
@@ -131,8 +131,8 @@ postpone).
   - For RFCs with lengthy discussion, the motion to FCP is usually preceded by
   a *summary comment* trying to lay out the current state of the discussion and
   major trade-offs/points of disagreement.
-  - Before actually entering FCP, *all* members of the subteam must sign off;
-  this is often the point at which many subteam members first review the RFC in
+  - Before actually entering FCP, *the majority* of maintainers must sign off;
+  this is often the point at which many maintainers first review the RFC in
   full depth.
 - The FCP lasts one week, or seven calendar days. It is also advertised widely,
 e.g. in the [Fabric Mailing List](https://lists.hyperledger.org/g/fabric/topics).
@@ -195,17 +195,11 @@ a comment describing the rationale for the decision.
 Some accepted RFCs represent vital changes that need to be implemented right
 away. Other accepted RFCs can represent changes that can wait until a
 developer feels like doing the work. Every accepted RFC has an associated
-issue tracking its implementation in the [Fabric JIRA issue tracker](https://jira.hyperledger.org/projects/FAB/issues);
-thus that associated issue can be assigned a priority via the triage process
-that the team uses for all issues related to Fabric.
+issue tracking its implementation in the [Fabric JIRA issue tracker](https://jira.hyperledger.org/projects/FAB/issues).
 
 The author of an RFC is not obligated to implement it. Of course, the RFC
 author, as any other developer, is welcome to post an implementation for review
-after the RFC has been accepted.
-
-If you are interested in working on the implementation for an active RFC, but
-cannot determine if someone else is already working on it, feel free to ask
-(e.g. by leaving a comment on the associated issue).
+after the RFC has been accepted. Use JIRA for this.
 
 ## License
 
