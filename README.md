@@ -1,4 +1,4 @@
-# Hyperledger Fabric RFCs Proposal
+# Hyperledger Fabric RFCs Process
 
 Many changes, including bug fixes and documentation improvements can be
 implemented and reviewed via the normal [GitHub pull request workflow](https://guides.github.com/introduction/flow/).
