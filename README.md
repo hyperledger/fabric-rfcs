@@ -1,3 +1,8 @@
+---
+layout: default
+title: RFCs Process
+nav_order: 2
+---
 # Hyperledger Fabric RFCs Process
 
 Many changes, including bug fixes and documentation improvements can be

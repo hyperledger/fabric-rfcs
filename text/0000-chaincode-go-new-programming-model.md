@@ -1,3 +1,9 @@
+---
+layout: default
+title: chaincode_go_new_programming_model
+parent: RFCs
+---
+
 - Feature Name: chaincode_go_new_programming_model
 - Start Date: 2019-11-15
 - RFC PR:
