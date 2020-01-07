@@ -136,14 +136,18 @@ postpone).
   - For RFCs with lengthy discussion, the motion to FCP is usually preceded by
   a *summary comment* trying to lay out the current state of the discussion and
   major trade-offs/points of disagreement.
-  - Before actually entering FCP, *the majority* of maintainers must sign off;
+  - Before actually entering FCP, the Fabric maintainer who proposes that the
+  RFC enter FCP ensures that other interested maintainers have reviewed the RFC
+  and at least two other maintainers (three total) have indicated agreement;
   this is often the point at which many maintainers first review the RFC in
-  full depth.
+  full depth. Note that maintainers from any Fabric repository may review and
+  indicate agreement, especially for RFCs that impact multiple repositories.
 - The FCP lasts one week, or seven calendar days. It is also advertised widely,
 e.g. in the [Fabric Mailing List](https://lists.hyperledger.org/g/fabric/topics).
 This way all stakeholders have a chance to lodge any final objections before a
 decision is reached.
-- In most cases, the FCP period is quiet, and the RFC is either merged or
+- In most cases, the FCP period is quiet since the most interested maintainers
+have already indicated agreement, and the RFC is either merged or
 closed. However, sometimes substantial new arguments or ideas are raised, the
 FCP is canceled, and the RFC goes back into development mode.
 
@@ -151,7 +155,7 @@ FCP is canceled, and the RFC goes back into development mode.
 
 [The RFC life-cycle]: #the-rfc-life-cycle
 
-Once an RFC becomes "active" then authors may implement it and submit the
+Once an RFC is merged, it becomes "active" and developers may implement it and submit the code
 change as a pull request to the corresponding Fabric repo. Being "active" is
 not a rubber stamp, and it does not mean the change will ultimately be merged;
 it does mean that in principle all the major stakeholders have agreed to the
