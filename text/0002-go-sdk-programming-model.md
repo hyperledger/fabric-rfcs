@@ -23,7 +23,7 @@ The motivation of this work is to provide a consistent set of concepts and APIs 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-The Fabric documentation (v1.4 onwards) contains a chapter 'Developing Applications' which describes how to develop smart contracts and client applications using the new programming model.  The chapter illustrates the concepts using the example of a commercial paper, and gives code examples as it guides the user through the development steps.  This documentation, and related samples, currently applies to the Node and Java SDKs and chaincode contract APIs.  This RFC describes the implementation of this in the Go SDK and is related to [RFC 0000](https://github.com/hyperledger/fabric-rfcs/blob/master/text/0000-chaincode-go-new-programming-model.md) which describes the Go implementation of the chaincode contract API.
+The Fabric documentation (v1.4 onwards) contains a chapter 'Developing Applications' which describes how to develop smart contracts and client applications using the new programming model.  The chapter illustrates the concepts using the example of a commercial paper, and gives code examples as it guides the user through the development steps.  This documentation, and related samples, currently applies to the Node and Java SDKs and chaincode contract APIs.  This RFC describes the implementation of this in the Go SDK and is related to [RFC 0001](https://github.com/hyperledger/fabric-rfcs/blob/master/text/0001-chaincode-go-new-programming-model.md) which describes the Go implementation of the chaincode contract API.
 
 Note that this new programming model does not break any existing APIs.  Client applications written using these APIs will continue to work unchanged.
 
