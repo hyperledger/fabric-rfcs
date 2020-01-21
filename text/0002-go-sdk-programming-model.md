@@ -1,3 +1,9 @@
+---
+layout: default
+title: Implement Fabric programming model in the Go SDK
+parent: RFCs
+---
+
 - Feature Name: Implement Fabric programming model in the Go SDK
 - Start Date: 2019-11-21
 - RFC PR: (leave this empty)
@@ -201,7 +207,7 @@ This proposal builds (and depends) on the existing Go SDK as implemented in the 
 
 New client samples for Fabcar and Commercial Paper, implemented in Go, will be added to the `hyperledger/fabric-samples` repo.
 
-This is also related to, but does not depend on, [RFC 0000](https://github.com/hyperledger/fabric-rfcs/blob/master/text/0000-chaincode-go-new-programming-model.md) which brings the new programming model to the Go chaincode API.
+This is also related to, but does not depend on, [RFC 0001](https://github.com/hyperledger/fabric-rfcs/blob/master/text/0001-chaincode-go-new-programming-model.md) which brings the new programming model to the Go chaincode API.
 
 # Unresolved questions
 [unresolved]: #unresolved-questions
