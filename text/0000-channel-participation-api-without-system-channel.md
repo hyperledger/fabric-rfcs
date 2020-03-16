@@ -4,7 +4,7 @@ title: RFC Template
 nav_order: 3
 ---
 
-- Feature Name: channel_provisioning_without_system_channel
+- Feature Name: channel_participation_api_without_system_channel
 - Start Date: 2020-03-01
 - RFC PR: (leave this empty)
 - Fabric Component: orderer
@@ -16,7 +16,7 @@ nav_order: 3
 Currently in order to create a channel one needs to issue a config transaction to the system channel. This has 
 privacy, scalability and operational disadvantages, since the system channel (and the orderers running it) is aware of 
 all channels and of all channel members (at creation time). In this feature we propose to expose a 
-"channel provisioning" service that would allow a local orderer administrator to join and leave a channel, as well as 
+"channel participation" API that would allow a local orderer administrator to join and leave a channel, as well as 
 to list all the channels that the local orderer is part of. This allows a Fabric network to be operated without the use 
 of a system channel, which improve the privacy and scalability of the ordering service and the network as a whole. 
 
@@ -33,13 +33,17 @@ desirable that an OSN that services a channel `A` with member organizations `X &
 organizations `Y & Z`. This creates a privacy problem, because the orderer organization (or organizations) now knows 
 that `Y`, `X`'s partner to channel `A`, is also doing business with organization `Z`.  
 
+There are workarounds that reduce the privacy problem, but not eliminate it. For example, using the system channel it 
+is possible to create an application channel with only a single org, and then add additional orgs by updating the 
+channel itself. These type of solutions are cumbersome. 
+
 ## Scalability problems
 All OSNs are members of the system channel, which creates a scalability problem in a large scale Fabric network. When 
 the number of channels increases, Raft allows us do decouple the consenters sets of the different application channels, 
 achieving linear horizontal scalability in the number of channels. That is, more resource can be added as the number of 
 channels increase. However, the system channel is an exception: decoupling application channel consenters sets as 
-described above will cause its number of members to increase, and hence its to performance to decrease. Provisioning 
-channels without a system channel solves this problem.     
+described above will cause its number of members to increase, and hence its to performance to decrease. Joining and 
+leaving channels without a system channel solves this problem.     
    
 Moreover, in order start a new orderer and have it join an existing channel (perform 'on-boarding'), a new orderer 
 starts by scanning the system channel in order to discover existing channels and their membership. As the number of 
@@ -66,32 +70,33 @@ been added to a channel it was not a part of previously, because otherwise detec
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-We introduce a new mode of channel provisioning that does not depend on the existence of a system channel.
+We introduce a new mode of channel participation management that does not depend on the existence of a system channel.
 
-We introduce the ability to start an OSN process without any channels. The OSN exposes a new **"channel provisioning" 
-service** that allows the operator to provision and de-provision channels on that specific OSN.   
+We introduce the ability to start an OSN process without any channels. The OSN exposes a new **"channel participation" 
+API** that allows the operator to join and leave channels on that specific OSN.   
 
-A **"local orderer channel provisioner"** is a role that is associated with the operation and administration of an OSN. 
-The identity associated with this role is able to invoke a new **"channel provisioning" API**, and perform the 
-following commands:
+A **"local orderer channel participation administrator"** is a role that is associated with the operation and 
+administration of an OSN. The identity associated with this role is able to invoke a new **"channel participation" 
+API**, and perform the following commands:
 
-- **Create** a new channel that this OSN is member of,
-- **Join** this OSN to an existing channel,
+- **Join** this OSN to a new or an existing channel,
 - **Remove** this OSN from an existing channel,
 - **List** the channels this OSN is a member of.   
 
-The new mode of channel provisioning is meant to be incompatible with channel creation using a system channel, in the 
-sense that if the system channel exists, the `Create` and `Join` operations will not be supported. However, there is
-a transition path from a network operated with a system channel to a network that is operated without one. In addition, 
-it should be possible to start OSN processes without channels, create a system channel with the channel provisioning 
-API, and continue to operate the network in the usual way - creating channels through the system channel. 
+The new mode of channel participation management is meant to be incompatible with channel creation using a system 
+channel, in the sense that if the system channel exists, the `Create` and `Join` operations will not be supported. 
+However, there is a transition path from a network operated with a system channel to a network that is operated without
+one. In addition, it should be possible to start OSN processes without channels, create a system channel with the
+channel participation API, and continue to operate the network in the usual way - creating channels through the system 
+channel. "Mixed mode" management, that is, using the system channel to create channels on some OSNs and the 
+participation API on other OSNs is not supported and highly discouraged.  
 
-## Channel provisioning commands 
-In this section channel provisioning commands are described in a high level. The commands are presented in REST style
+## Channel participation commands 
+In this section channel participation commands are described in a high level. The commands are presented in REST style
 but some details (i.e. exact formats, responses) are omitted for clarity.
    
-### Creating a channel
-A channel is created by first generating a "genesis block" for that particular application channel, and then invoking 
+### Joining a channel
+A channel is joined by created by first generating a "genesis block" for that particular application channel, and then invoking 
 the API:
 
   ```Create channel-name channel-genesis-block```
@@ -155,7 +160,7 @@ or be slow. However, that is not indicated by the response to the call but rathe
 channel, see below. 
 
 ### Removing a channel
-In order to remove a channel from an OSN the local orderer channel provisioner should invoke:
+In order to remove a channel from an OSN the local orderer channel participation admin should invoke:
 
 ```Delete channel-name```
 
@@ -167,9 +172,9 @@ If the operation succeeds, the runtime resources associated with this channel in
 the storage resources associated with it will be removed.  
 
 It is recommended that the channel administrators first update the channel configuration and remove the target OSN from 
-the consenters set, and only then let the local orderer channel provisioner remove it from the OSN. However, it should 
+the consenters set, and only then let the local orderer channel participation admin remove it from the OSN. However, it should 
 be possible to remove a channel from an OSN even though the target OSN was not removed from its channel config. It is
-the responsibility of the administrator and provisioner to make sure they do not deprive the channel's consensus 
+the responsibility of the channel administrator and participation admin to make sure they do not deprive the channel's consensus 
 protocol from the ability to reach a quorum.    
 
 It should be possible to remove a channel from an OSN and join or create it again later.
@@ -192,22 +197,22 @@ The response will be successful if the channel exists, and fail otherwise. If su
 conveys the information of whether this OSN had finished the on-boarding process of the channel.
 
 ## Security
-The channel provisioning service adopts the style of the "operations" API in the orderer. The local orderer channel 
-provisioner is not identified by the MSP, but rather through mutual TLS. Like in the operations API that handles 
+The channel participation API adopts the style of the "operations" API in the orderer. The local orderer channel 
+participation admin is not identified by the MSP, but rather through mutual TLS. Like in the operations API that handles 
 log-spec, the orderer.yaml file specifies:
-- whether channel provisioning is enabled
-- whether security is enabled for channel provisioning
-- the client root CAs that are authorized to invoke channel provisioning commands
+- whether the channel participation API is enabled
+- whether security is enabled for channel participation
+- the client root CAs that are authorized to invoke channel participation commands
 
 It is recognized that the mutual-TLS mechanism is less than ideal and presents difficulties when web gRPC and SSL 
-termination are involved. In anticipation of an upgrade to this mechanism, the channel provisioning service will be 
+termination are involved. In anticipation of an upgrade to this mechanism, the channel participation API will be 
 implemented is such a way that allows an easy upgrade to another mechanism of authentication and authorization.     
 
 ## Common operational flows
 
 ### Bootstrapping a new Fabric network without a system channel
-- Start one or more OSNs without any channels. These OSNs should be configured to accept channel provisioning commands
-  from their respective local orderer channel providers. These OSNs may belong to different organizations.
+- Start one or more OSNs without any channels. These OSNs should be configured to accept channel participation commands
+  from their respective local orderer channel participation admins. These OSNs may belong to different organizations.
 - Create a new channel as described below.
  
 ### Adding a new channel to existing OSNs
@@ -215,45 +220,45 @@ implemented is such a way that allows an easy upgrade to another mechanism of au
   organizations that compose the application consortium, and the organizations that run the ordering service.
 - These entities agree on a basic configuration for the channel, as expressed in the configtx.yaml file.
 - A single entity generates the channel genesis block, and all the entities inspect and agree that the block is correct.
-- All channel providers (one for each ordering org) create the channel on all their respective OSNs by invoking the 
+- All channel participation admins (one for each ordering org) create the channel on all their respective OSNs by invoking the 
   "Create" command with said genesis block.
 - Channel admins (as defined by MSP config in said genesis block) can now join peers to the channel, and continue to 
   configure the channel as usual.  
 - The mechanism for coordination and agreement on the genesis block is out of the scope of this RFC. It is the 
-  responsibility of the channel admins and providers to supply the same genesis block during creation.
+  responsibility of the channel admins and participation admins to supply the same genesis block during creation.
 
 ### Adding a new OSN to an existing channel
 - The channel admins issue a config update transaction that adds the new OSN to the consenters set of the channel, and 
   to the orderer endpoints. This introduces the new OSN to the existing OSNs and the peers.
-- The channel admins get the last config block of the channel, and provide it to the channel provider of the new OSN. 
+- The channel admins get the last config block of the channel, and provide it to the channel participation admin of the new OSN. 
   (These may be the same entity).
-- The channel provider of the new OSN invokes the "Join" command with said config block.
+- The channel participation admin of the new OSN invokes the "Join" command with said config block.
 
 ### Removing an OSN from an existing channel
 - The channel admins issue a config update transaction that removes the target OSN from the consenters set of the 
   channel, as well as from the orderer endpoints. Care must be taken to ensure that the remaining OSNs can still 
   function and reach consensus.
-- The channel provider of the target OSN invokes the "Delete" command with target channel name.
+- The channel participation admin of the target OSN invokes the "Delete" command with target channel name.
 
-### Transitioning to local channel-provisioning from system-channel-based channel creation
-- Configure all OSNs to accept channel provisioning commands from their respective local orderer channel providers. 
+### Transitioning to local channel participation management from system-channel-based channel creation
+- Configure all OSNs to accept channel participation commands from their respective local orderer channel participation admins. 
   This may require a reboot of all OSNs. 
   This will allow OSNs to accept "List" commands and "Delete" of the system channel only. 
 - Switch the system channel to maintenance mode, in order to stop channel creation TXs from coming in.
 - Delete the system channel on all OSNs.
-- OSNs will now accept the full set of channel provisioning commands.
-- It is the responsibility of all local orderer channel providers to delete the system channel from all OSNs.
+- OSNs will now accept the full set of channel participation commands.
+- It is the responsibility of all local orderer channel participation admins to delete the system channel from all OSNs.
 
-### Creating a system channel using the channel provisioning API
-- Start one or more OSNs without any channels. These OSNs should be configured to accept channel provisioning commands
-  from their respective local orderer channel providers. These OSNs may belong to different organizations. 
+### Creating a system channel using the channel participation API
+- Start one or more OSNs without any channels. These OSNs should be configured to accept channel participation commands
+  from their respective local orderer channel participation admins. These OSNs may belong to different organizations. 
 - Generate (using configtxgen, as usual), the genesis block of a system channel. (The system channel contains the 
   `Consortiums` config group, whereas application channels do not).
 - Create the system channel by invoking the "Create" command as described above, but supply the genesis block of the 
   system channel, rather than that of an application channel.
-- The channel provisioning commands "Join" and "Create" will no longer accept commands, and channel creation can only 
+- The channel participation command "Join" will no longer accept commands, and channel creation can only 
   be done using a config transaction on the system channel.
-- The channel provisioning commands "List" and "Delete" will continue to function.
+- The channel participation commands "List" and "Delete" will continue to function.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
