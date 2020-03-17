@@ -371,6 +371,38 @@ ledger/blockchain features.
 to validate this proposal, beyond the usual mandatory unit tests?
 - List integration test scenarios which will outline correctness of proposed functionality.
 
+## Unit tests
+Every new class of the new participation API will be covered by new unit tests.
+
+## Integration tests
+Integration tests will cover the following scenarios:
+1. Bootstrap: 
+   - starting a set of empty OSNs 
+   - joining all to an app-channel
+2. Add new channel: 
+   - starting with a set of OSNs with a channel 
+   - add another channel to a subset of OSNs (Join with genesis-block)
+3. Add new OSN: 
+   - start with a set of OSNs, with a channel, with blocks
+   - add the new OSN to the channel (join with last-config-block)
+   - as a follower (not in consensus set), adding it after catch-up
+   - as a member (in consensus set)
+4. Remove an OSN from a channel:
+   - start with a set of OSNs, with a channel, with blocks
+   - add the new OSN to the channel 
+        - as a follower 
+        - as a member
+5. Bootstrap to system channel:
+   - starting a set of empty OSNs 
+   - joining all to a system-channel
+   - create a channel
+   - make sure Join and Delete (app-channel) are disabled
+5. Transition from system-channel to local participation:
+   - start from a network with a system channel and app channel
+   - remove system-channel
+   - add channel with participation API
+
+
 # Dependencies
 [dependencies]: #dependencies
 
