@@ -190,7 +190,7 @@ channel's consensus protocol from the ability to reach a quorum.
 
 It should be possible to remove a channel from an OSN and join or create it again later.
 
-It should be possible to delete the system-channel.   
+When the system channel exists, it should be possible to delete the system-channel, but not any other channel.   
 
 ### Listing the channels
 Listing the channels serviced by a given OSN is achieved by invoking
@@ -201,10 +201,11 @@ or
 
 ```GET /channels```
 
-The response is a list of pairs containing channel names and an informational object in JSON format. 
+The response is a list of pairs, where each pair contains the channel name and an informational object in JSON format. 
 
-The informational object contains:
+The informational object contains (at least):
 - the on-boarding status of a channel: catching up, following (past catchup), or complete (running consensus).
+- whether the node is a follower or a member of the cluster
 - the height of the ledger
 - ...
 
@@ -219,8 +220,9 @@ or
 The response will be successful if the channel exists, and fail otherwise. If successful, it will return the 
 informational object described above.
 
-In case an OSN is joined as a follower, invoking "List"   
-conveys the information of whether this OSN had finished catching up with the cluster.
+- In case an OSN is joined as a follower, invoking "List channel-name"   
+  conveys the information of whether this OSN had finished catching up with the cluster. 
+- When the OSN is a member of the cluster, following the height can help detect connectivity and configuration problems. 
 
 ## Security
 The channel participation API adopts the style of the "operations" API in the orderer. The local orderer channel 
@@ -237,54 +239,76 @@ implemented is such a way that allows an easy upgrade to another mechanism of au
 ## Common operational flows
 
 ### Bootstrapping a new Fabric network without a system channel
-- Start one or more OSNs without any channels. These OSNs should be configured to accept channel participation commands
-  from their respective local orderer channel participation admins. These OSNs may belong to different organizations.
+- Start one or more OSNs without any channels. 
+- These OSNs should be configured to accept channel participation commands from their respective local orderer channel 
+  participation admins. This is achieved by setting the respective fields in the orderer.yaml file of each OSN.
+- These OSNs may belong to different organizations.
 - Create a new channel as described below.
  
 ### Adding a new channel to existing OSNs
 - The admins of the entities that take part in the channel cooperate to collect cryptographic material. Those are the 
   organizations that compose the application consortium, and the organizations that run the ordering service.
-- These entities agree on a basic configuration for the channel, as expressed in the configtx.yaml file.
+- These entities agree on a basic configuration for the channel, as expressed in the `configtx.yaml` file.
 - A single entity generates the channel genesis block, and all the entities inspect and agree that the block is correct.
-- All channel participation admins (one for each ordering org) create the channel on all their respective OSNs by invoking the 
-  "Create" command with said genesis block.
+- All local channel participation admins (one for each ordering org) create the channel on all their respective OSNs by
+  invoking the "Join" command with said genesis block.
 - Channel admins (as defined by MSP config in said genesis block) can now join peers to the channel, and continue to 
   configure the channel as usual.  
 - The mechanism for coordination and agreement on the genesis block is out of the scope of this RFC. It is the 
-  responsibility of the channel admins and participation admins to supply the same genesis block during creation.
+  responsibility of the channel admins and participation admins to supply the same genesis block to the "Join" command.
 
-### Adding a new OSN to an existing channel
+### Adding a new OSN to an existing channel with a long chain
+When the number of blocks in the ledger is large, it is recommended to join the node as a follower, wait for ctach-up,
+and only then add it to the consenters set.
+
+- The channel admins get the last config block of the channel, and provide it to the channel participation admin of the 
+  new OSN. (These may be the same entity).
+- The channel participation admin of the new OSN invokes the "Join" command with said config block.
+- The channel participation admin checks that the new OSN had caught up with the cluster using the "List" command.
 - The channel admins issue a config update transaction that adds the new OSN to the consenters set of the channel, and 
   to the orderer endpoints. This introduces the new OSN to the existing OSNs and the peers.
-- The channel admins get the last config block of the channel, and provide it to the channel participation admin of the new OSN. 
-  (These may be the same entity).
+
+### Adding a new OSN to an existing channel with a short chain
+When the number of blocks in the ledger is small, it is possible to reverse the order described above, and join the 
+node as a member of the cluster.
+
+- The channel admins issue a config update transaction that adds the new OSN to the consenters set of the channel, and 
+  to the orderer endpoints. This introduces the new OSN to the existing OSNs and the peers.
+- The channel admins get the last config block of the channel, and provide it to the channel participation admin of the 
+  new OSN. (These may be the same entity).
 - The channel participation admin of the new OSN invokes the "Join" command with said config block.
 
 ### Removing an OSN from an existing channel
 - The channel admins issue a config update transaction that removes the target OSN from the consenters set of the 
   channel, as well as from the orderer endpoints. Care must be taken to ensure that the remaining OSNs can still 
   function and reach consensus.
+- After removal from the consenters set the target OSN switches to "follower" mode and continues to pull blocks from
+  the other orderers.
 - The channel participation admin of the target OSN invokes the "Delete" command with target channel name.
+- If the options parameter indicates not to remove the channel storage, the orderer 
 
 ### Transitioning to local channel participation management from system-channel-based channel creation
-- Configure all OSNs to accept channel participation commands from their respective local orderer channel participation admins. 
-  This may require a reboot of all OSNs. 
-  This will allow OSNs to accept "List" commands and "Delete" of the system channel only. 
 - Switch the system channel to maintenance mode, in order to stop channel creation TXs from coming in.
-- Delete the system channel on all OSNs.
+- Configure all OSNs to accept channel participation commands from their respective local orderer channel participation 
+  admins. This is done by changing the `orderer.yaml` and rebooting the OSN. This operation can be staggered, such 
+  that, depending on the fault tolerance setup of respective channels, no channel down-time is experienced.  
+- This will allow OSNs to accept "List" commands and "Delete" of the system channel only. 
+- Delete the system channel from all OSNs.
 - OSNs will now accept the full set of channel participation commands.
 - It is the responsibility of all local orderer channel participation admins to delete the system channel from all OSNs.
 
 ### Creating a system channel using the channel participation API
-- Start one or more OSNs without any channels. These OSNs should be configured to accept channel participation commands
-  from their respective local orderer channel participation admins. These OSNs may belong to different organizations. 
+- Start one or more OSNs without any channels. 
+- These OSNs should be configured to accept channel participation commands from their respective local orderer channel 
+  participation admins. This is achieved by setting the respective fields in the orderer.yaml file of each OSN.
+- These OSNs may belong to different organizations.
 - Generate (using configtxgen, as usual), the genesis block of a system channel. (The system channel contains the 
   `Consortiums` config group, whereas application channels do not).
-- Create the system channel by invoking the "Create" command as described above, but supply the genesis block of the 
+- Create the system channel by invoking the "Join" command as described above, but supply the genesis block of the 
   system channel, rather than that of an application channel.
 - The channel participation command "Join" will no longer accept commands, and channel creation can only 
   be done using a config transaction on the system channel.
-- The channel participation commands "List" and "Delete" will continue to function.
+- The channel participation commands "List" and "Delete" (of system channel only) will continue to function.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
