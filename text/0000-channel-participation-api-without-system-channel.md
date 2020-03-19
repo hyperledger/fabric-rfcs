@@ -313,21 +313,59 @@ node as a member of the cluster.
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-This is the technical portion of the RFC. Explain the design in sufficient
-detail that:
+## The API layer
+We intend to extend the "operations API" (package `core/operations`) by adding a handler for channel participation 
+commands, as described above. These commands will only be enabled if specified explicitly in the `orderer.yaml` 
+configuration file. This commands will only be available in the orderer and not in the peer.
 
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
+The _local orderer participation admin_  role will have the same authentication and authorization
+as the _operations admin_ (i.e. the same mutual TLS certificate). This is expected to change in the future (see below).
 
-The section should return to the examples given in the previous section, and
-explain more fully how the detailed proposal makes those examples work.
+## Participation management
+We intend to implement the channel participation management functionality in a new package 
+(`orderer/common/channelparticipation`). In this package a new class will keep a map of channel names and their status,
+and will be in charge of coordinating the operations of following or joining a channel (as a member). 
+Every channel that needs to follow or catchup on the cluster will have a dedicated goroutine. When the channel reached
+a state where it can join the cluster, the `orderer/common/multichannel/registrar.go` will be invoked accordingly.
+
+When a channel is first joined with a config block, the channel's ledger folder is created, and inside it the config 
+block is saved in a file called `.join-config-block`. The existence of this file is a signal that the join process is 
+active, and should be resumed after restart, even if the orderer crashes or is terminated. 
+This block will be used as a "bootstrap" for pulling blocks from other OSNs, and its height 
+an indication for when catch-up is complete. If the OSN is a member of the cluster when catch-up
+is complete, the node will start the chain, otherwise it will continue to follow and check 
+incoming config blocks. When the node joins the cluster and starts the respective chain run-time component,
+it will delete the `.join-config-block` file.
+
+The process of a join includes fetching blocks from other OSNs. For that purpose we will reuse code from 
+`orderer/common/cluster`, in particular the method that pulls a single named channel 
+`Replicator.PullChannel(channel string)`.
+
+Deleting a channel is achieved by first adding to the ledger folder a file called `.remove`, again, to mark it for 
+removal across restarts. Then, the runtime components of th channel are terminated (using `.../multichannel`),
+and finally, if respective flag is set, the folder is deleted.
+
+Listing the channel or channel is achieved by querying the channel map in   `.../channelparticipation`
+
+The interface of executing channel participation commands is expected to stay stable even if the  authentication and 
+authorization mechanisms change, or even if this API is separated on to a different service endpoint.
+
+## Boot sequence of Orderer
+In the boot sequence of the orderer (`orderer/server/main.go`) we will have to check whether the orderer is working
+with or without the system channel, and then start either the current on-boarding code (eventually calling 
+`orderer/common/cluster/Replicator`) or the new channel participation component.
+
+If the channel participation is enabled, the periodic scanning of the system channel will also be disabled.
+
+In the initialization sequence of the `.../multichannel/registrar.go` we we will have to check 
+the ledger folder of each channel for the existence of the `.join-config-block` & `.delete` files,
+and avoid starting respective chains if they are found.  
 
 # Drawbacks
 [drawbacks]: #drawbacks
 
 The main drawback is that, in the absence of a central synchronization point (system-channel), channel creation now 
-requires a coordinated effort for multiple local orderer participation admins. This exposes several risks.
+requires the coordinated effort of multiple local orderer participation admins. This exposes several risks.
  
 ## Genesis block divergence
 In the proposed design the onus of providing identical channel genesis blocks to the OSNs is upon the participation
