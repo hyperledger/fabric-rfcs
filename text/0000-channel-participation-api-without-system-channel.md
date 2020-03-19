@@ -349,10 +349,19 @@ We propose to deal with this risk by clearly documenting that this is not suppor
 # Rationale and alternatives
 [alternatives]: #alternatives
 
-- Why is this design the best in the space of possible designs?
-- What other designs have been considered and what is the rationale for not
-  choosing them?
-- What is the impact of not doing this?
+## Rationale
+The proposed design completely decouples application channels from the system channel and thus, breaks the scalability 
+barrier. Each channel can hence be deployed on a different set of orderers, achieving linear scalability in the number
+of channels. This design also solves the privacy problem inherent in a shared system channel, and simplifies 
+admin operations.
+
+## Alternative
+An alternative design is to keep the system channel running on small cluster, and drop the requirement of app-channel
+OSNs to be a member of that cluster. OSNs belonging to app-channels follow the system channel and fetch blocks like 
+a peer does.
+
+This solves the scalability of channels, but not the privacy problem. Some of the operational problems also remain, 
+e.g. slow on-boarding time of new OSNs existing channels.
 
 # Prior art
 [prior-art]: #prior-art
