@@ -326,9 +326,26 @@ explain more fully how the detailed proposal makes those examples work.
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we *not* do this? Are there any risks that must be considered along with
-this rfc. 
+The main drawback is that, in the absence of a central synchronization point (system-channel), channel creation now 
+requires a coordinated effort for multiple local orderer participation admins. This exposes several risks.
+ 
+## Genesis block divergence
+In the proposed design the onus of providing identical channel genesis blocks to the OSNs is upon the participation
+admins. In a Raft based orderer there are no explicit mechanisms to protect against different orderers on the same 
+channel starting with different genesis blocks, and depending on the nature of the difference between these blocks, 
+various failure scenarios are possible. 
 
+We propose to deal with this risk by developing mechanisms to detect and 
+prevent this situation in a separate RFC.
+
+## Mixed mode operation
+Given a network operated with a system channel, an operator starts an empty orderer, gets the last config block from 
+an existing channel, and joins the orderer to it. There is no existing mechanism that prevents that. Mixed mode 
+operation can break existing on-boarding code in unpredictable ways.
+
+We propose to deal with this risk by clearly documenting that this is not supported and highly discouraged.
+  
+  
 # Rationale and alternatives
 [alternatives]: #alternatives
 
@@ -340,29 +357,7 @@ this rfc.
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal.
-A few examples of what this can include are:
-
-- For consensus, global state, transaction processors, and smart contracts
-  implementation proposals: Does this feature exists in other distributed
-  ledgers and what experience have their communities had?
-- For community proposals: Is this done by some other community and what were
-  their experiences with it?
-- For other teams: What lessons can we learn from what other communities have
-  done here?
-- Papers: Are there any published papers or great posts that discuss this? If
-  you have some relevant papers to refer to, this can serve as a more detailed
-  theoretical background.
-
-This section is intended to encourage you as an author to think about the
-lessons from other distributed ledgers, provide readers of your RFC with
-a fuller picture.  If there is no prior art, that is fine - your ideas are
-interesting to us whether they are brand new or if it is an adaptation.
-
-Note that while precedent set by other distributed ledgers is some motivation,
-it does not on its own motivate an RFC.  Please also take into consideration
-that Fabric sometimes intentionally diverges from common distributed
-ledger/blockchain features.
+N/A
 
 # Testing
 [testing]: #testing
