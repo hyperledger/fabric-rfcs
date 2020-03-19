@@ -42,10 +42,10 @@ All OSNs are members of the system channel, which creates a scalability problem 
 the number of channels increases, Raft allows us do decouple the consenters sets of the different application channels, 
 achieving linear horizontal scalability in the number of channels. That is, more resource can be added as the number of 
 channels increase. However, the system channel is an exception: decoupling application channel consenters sets as 
-described above will cause its number of members to increase, and hence its to performance to decrease. Joining and 
+described above will cause its number of members to increase, and hence its performance to decrease. Joining and 
 leaving channels without a system channel solves this problem.     
    
-Moreover, in order start a new orderer and have it join an existing channel (perform 'on-boarding'), a new orderer 
+Moreover, in order to start a new orderer and have it join an existing channel (perform 'on-boarding'), a new orderer 
 starts by scanning the system channel in order to discover existing channels and their membership. As the number of 
 channels increase, this scan prolongs the process of adding a new orderer.  
     
@@ -96,7 +96,7 @@ In this section channel participation commands are described in a high level. Th
 but some details (i.e. exact formats, responses) are omitted for clarity.
    
 ### Joining a channel
-A channel is joined providing the OSN with a config block:
+A channel is joined by providing the OSN with a config block:
 
   ```Join channel-name channel-config-block```
   
@@ -131,18 +131,18 @@ start the runtime components that execute consensus, thus joining the cluster.
 If the OSN is in the consenters set, it will continue as **member**, first pulling blocks from other OSMs util it catches
 up with the given config block, and then starting the runtime components that execute consensus, thus joining the cluster.
 
-Note that joining an OSN as a member means that the channel was updated to include it in the consenters set before it
-was joined by the participation API. Therefore, during the catchup process and until the new OSN starts executing 
-consensus, the cluster is a state of reduced fault tolerance. For long chains this might be a problem, since catchup
+Note that joining an OSN as a member means that the channel was updated to include that OSN in the consenters set before it
+was joined by the participation API. Therefore, during the catch-up process and until the new OSN starts executing 
+consensus, the cluster is a state of reduced fault tolerance. For long chains this might be a problem, since catch-up
 can take a long time. The solution is to join the new OSN as a follower. After it catches up with the cluster the 
 channel admin can update the channel config and include it in the consenters set.
 
 The new OSN can pull blocks from other OSNs only if it has authorization to do so. A minimal requirement is that its 
-owning org will be defined in the channel configuration, and that the new OSN will have a role of at least 
-`/Channel/Member`.
+owning org will be defined in the channel configuration, and that the signature of the new OSN on the `Deliver` 
+request satisfy the `/Channel/Readers` policy.
 
 #### Creating a channel genesis block
-The way to create a channel genesis block is by using the `configtxgen`  tool, which already to supports the 
+The way to create a channel genesis block is by using the `configtxgen`  tool, which already supports the 
 generation of an **application** channel genesis block.
 
 ```configtxgen -outputBlock channel_genesis_block.pb -profile SampleRaftChannelCreation -channelID my-app-channel```
@@ -164,7 +164,7 @@ configuration of all the config groups.
 #### Asynch operation 
 Successfully completing the "Join" command means that the orderer will start a process of "on-boarding". 
 The orderer will start a stage of state transfer in which it will fetch the ledger from other consenters, as described 
-above. If it is member of the cluster, it will join it and participate in the consensus protocol on new blocks. 
+above. If it is a member of the cluster, it will join it and participate in the consensus protocol on new blocks. 
 Note that misconfiguration of the channel, networking problems, or failures of other nodes may mean that the 
 "on-boarding" process might not be able to complete or be slow. However, that is not indicated by the response to the 
 call but rather by invoking a "List" command on the channel, see below. 
@@ -179,7 +179,7 @@ or
 ```DELETE /channels/channel-name``` with body containing ```options``` JSON object. 
 
 If the operation succeeds, the runtime resources associated with this channel in the orderer will be terminated. The 
-`options.renoveStorage` flag will determine whether the storage resources associated with channel will be removed 
+`options.removeStorage` boolean flag will determine whether the storage resources associated with channel will be removed 
 or left intact.  
 
 It is recommended that the channel administrators first update the channel configuration and remove the target OSN from 
@@ -188,7 +188,7 @@ should be possible to remove a channel from an OSN even though the target OSN wa
 It is the responsibility of the channel administrator and participation admin to make sure they do not deprive the 
 channel's consensus protocol from the ability to reach a quorum.    
 
-It should be possible to remove a channel from an OSN and join or create it again later.
+It should be possible to remove a channel from an OSN and join it again later.
 
 When the system channel exists, it should be possible to delete the system-channel, but not any other channel.   
 
@@ -204,7 +204,7 @@ or
 The response is a list of pairs, where each pair contains the channel name and an informational object in JSON format. 
 
 The informational object contains (at least):
-- the on-boarding status of a channel: catching up, following (past catchup), or complete (running consensus).
+- the on-boarding status of a channel: catching up, following (past catch-up), or complete (running consensus).
 - whether the node is a follower or a member of the cluster
 - the height of the ledger
 - ...
@@ -258,7 +258,7 @@ implemented is such a way that allows an easy upgrade to another mechanism of au
   responsibility of the channel admins and participation admins to supply the same genesis block to the "Join" command.
 
 ### Adding a new OSN to an existing channel with a long chain
-When the number of blocks in the ledger is large, it is recommended to join the node as a follower, wait for ctach-up,
+When the number of blocks in the ledger is large, it is recommended to join the node as a follower, wait for catch-up,
 and only then add it to the consenters set.
 
 - The channel admins get the last config block of the channel, and provide it to the channel participation admin of the 
@@ -285,7 +285,8 @@ node as a member of the cluster.
 - After removal from the consenters set the target OSN switches to "follower" mode and continues to pull blocks from
   the other orderers.
 - The channel participation admin of the target OSN invokes the "Delete" command with target channel name.
-- If the options parameter indicates not to remove the channel storage, the orderer 
+- If the options parameter indicates not to remove the channel storage, the orderer will not delete 
+the ledger folder of the channel; otherwise, it will delete it. 
 
 ### Transitioning to local channel participation management from system-channel-based channel creation
 - Switch the system channel to maintenance mode, in order to stop channel creation TXs from coming in.
@@ -315,8 +316,8 @@ node as a member of the cluster.
 
 ## The API layer
 We intend to extend the "operations API" (package `core/operations`) by adding a handler for channel participation 
-commands, as described above. These commands will only be enabled if specified explicitly in the `orderer.yaml` 
-configuration file. This commands will only be available in the orderer and not in the peer.
+commands, for path `/channels` as described above. These commands will only be enabled if specified explicitly in the `orderer.yaml` 
+configuration file. These commands will only be available in the orderer and not in the peer.
 
 The _local orderer participation admin_  role will have the same authentication and authorization
 as the _operations admin_ (i.e. the same mutual TLS certificate). This is expected to change in the future (see below).
@@ -324,9 +325,10 @@ as the _operations admin_ (i.e. the same mutual TLS certificate). This is expect
 ## Participation management
 We intend to implement the channel participation management functionality in a new package 
 (`orderer/common/channelparticipation`). In this package a new class will keep a map of channel names and their status,
-and will be in charge of coordinating the operations of following or joining a channel (as a member). 
-Every channel that needs to follow or catchup on the cluster will have a dedicated goroutine. When the channel reached
-a state where it can join the cluster, the `orderer/common/multichannel/registrar.go` will be invoked accordingly.
+and will be in charge of coordinating the operations of following or joining a channel as a member. 
+Every channel that needs to follow or catch-up on the cluster will have a dedicated goroutine. When the channel reaches
+a state where it can join the cluster, the respective methods in `orderer/common/multichannel/registrar.go` will be 
+invoked in order to start the chain runtime.
 
 When a channel is first joined with a config block, the channel's ledger folder is created, and inside it the config 
 block is saved in a file called `.join-config-block`. The existence of this file is a signal that the join process is 
@@ -342,10 +344,11 @@ The process of a join includes fetching blocks from other OSNs. For that purpose
 `Replicator.PullChannel(channel string)`.
 
 Deleting a channel is achieved by first adding to the ledger folder a file called `.remove`, again, to mark it for 
-removal across restarts. Then, the runtime components of th channel are terminated (using `.../multichannel`),
+removal across restarts. Then, the runtime components of the channel are terminated (using `.../multichannel`),
 and finally, if respective flag is set, the folder is deleted.
 
-Listing the channel or channel is achieved by querying the channel map in   `.../channelparticipation`
+Listing the channel or channel is achieved by querying the channel map in the `.../channelparticipation` package 
+implementation.
 
 The interface of executing channel participation commands is expected to stay stable even if the  authentication and 
 authorization mechanisms change, or even if this API is separated on to a different service endpoint.
@@ -355,9 +358,9 @@ In the boot sequence of the orderer (`orderer/server/main.go`) we will have to c
 with or without the system channel, and then start either the current on-boarding code (eventually calling 
 `orderer/common/cluster/Replicator`) or the new channel participation component.
 
-If the channel participation is enabled, the periodic scanning of the system channel will also be disabled.
+If the channel participation API is enabled, the periodic scanning of the system channel will also be disabled.
 
-In the initialization sequence of the `.../multichannel/registrar.go` we we will have to check 
+In the initialization sequence of the `.../multichannel/registrar.go` we will have to check 
 the ledger folder of each channel for the existence of the `.join-config-block` & `.delete` files,
 and avoid starting respective chains if they are found.  
 
@@ -374,7 +377,7 @@ channel starting with different genesis blocks, and depending on the nature of t
 various failure scenarios are possible. 
 
 We propose to deal with this risk by developing mechanisms to detect and 
-prevent this situation in a separate RFC.
+prevent this situation in a separate RFC (see below).
 
 ## Mixed mode operation
 Given a network operated with a system channel, an operator starts an empty orderer, gets the last config block from 
