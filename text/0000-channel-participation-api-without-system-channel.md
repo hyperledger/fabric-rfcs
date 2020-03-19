@@ -367,10 +367,6 @@ ledger/blockchain features.
 # Testing
 [testing]: #testing
 
-- What kinds of test development and execution will be required in order
-to validate this proposal, beyond the usual mandatory unit tests?
-- List integration test scenarios which will outline correctness of proposed functionality.
-
 ## Unit tests
 Every new class of the new participation API will be covered by new unit tests.
 
@@ -406,20 +402,51 @@ Integration tests will cover the following scenarios:
 # Dependencies
 [dependencies]: #dependencies
 
-- Describe all dependencies that this proposal might have on other RFCs, known JIRA issues,
-Hyperledger Fabric components.  Dependencies upon RFCs or issues should be recorded as 
-links in the proposals issue itself.
+## Existing items
+These Jira items are precursors of this RFC:
 
-- List down related RFCs proposals that depend upon current RFC, and likewise make sure 
-they are also linked to this RFC.
+- https://jira.hyperledger.org/browse/FAB-15709
+- https://jira.hyperledger.org/browse/FAB-15710
+- https://jira.hyperledger.org/browse/FAB-15711
+- https://jira.hyperledger.org/browse/FAB-15712
+- https://jira.hyperledger.org/browse/FAB-15713
+
+These will be combined in the development plan once the RFC is approved.
+
+## Authorization and Authentication
+There is an ongoing effort to improve the AA mechanisms of the "operations" API. 
+When that work is completed, and implementation starts, the participation API would be impacted as well.
+However, the bulk of the implementation, which resides "below" the API layer, is not going to be affected.   
 
 # Unresolved questions
 [unresolved]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process
-  before this gets merged?
-- What parts of the design do you expect to resolve through the implementation
-  of this feature before stabilization?
-- What related issues do you consider out of scope for this RFC that could be
-  addressed in the future independently of the solution that comes out of this
-  RFC?
+## Protection against genesis block divergence
+
+In the proposed design the onus of providing identical channel genesis blocks to the OSNs is upon the participation
+admins. In a Raft based orderer there are no explicit mechanisms to protect against different orderers on the same 
+channel starting with different genesis blocks, and depending on the nature of the difference between these blocks, 
+various failure scenarios are possible. For example:
+
+* Genesis blocks that are identical in the sections that allow a cluster to form, but diverge in a
+section that is not essential for the ordering service. The Raft cluster would form, a leader would be selected. The
+next block coming from whoever happens to be the leader will have a hash that is inconsistent with the previous block 
+on all nodes that have a different genesis block. This would not be detected at the ordering service, but would crash 
+the peers that pull blocks from any OSN with a different genesis block than the leader.  
+* Genesis blocks in which the certificate of a single OSN is corrupt in some blocks. This would lead to asymmetric 
+connectivity patterns in which some nodes can connect with that OSN and some do not, while being able to communicate
+with each other. This can lead to reduced fault tolerance or complete loss of quorum that is hard to detect.  
+
+One consequence of introducing the participation API is that some **mechanisms for protection against genesis block
+divergence should be introduced**. Below are a few possible directions. 
+
+* Intercepting the Raft leader "AppendEntries" messages at the followers, if and only if the height of the Raft node 
+is 1 (only has a genesis block). This is very cheap since it will only happen once and never again.
+     
+* Have the cluster services use some derived unique name instead of the channel ID for routing of messages -- that way 
+two nodes only ever talk if they are on the same channel, and have the same genesis block. for example, the unique name 
+can be the channelName-hex.EncodeString(Hash(GenesisBlock))
+
+Further investigation is needed in order to choose and design the right solution. This part is expected to be handled 
+in a different RFC.
+
