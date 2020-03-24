@@ -1,6 +1,6 @@
 ---
 layout: default
-title: RFC Template
+title: Channel participation api without system channel
 nav_order: 3
 ---
 
