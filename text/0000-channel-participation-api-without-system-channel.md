@@ -127,17 +127,33 @@ is well-formed.
 The OSN will try to find itself in the consenters set, and determine if it is a follower or a member of the cluster
 executing consensus. 
 
-If it is not in the set, it will continue as a **follower**, and start to pull blocks from other OSNs. It will continue
-to do so until it catches up with the config block received in the invocation. From then on, it will continue to pull blocks, 
-but will inspect each incoming config block and check whether it is included in the consenters set. If it is, it will 
-start the runtime components that execute consensus, thus joining the cluster. 
+#### Definition of cluster member and cluster follower
+* A cluster **follower** is an OSN that is not defined in the channel's consenters set and does not take part in 
+  consensus. It just pulls blocks from other OSNs (which are members of the cluster).  
+* A cluster **member** OSN is defined in the channel's consenters set and takes part in consensus.
 
-If the OSN is in the consenters set, it will continue as **member**, first pulling blocks from other OSNs util it catches
-up with the given config block, and then starting the runtime components that execute consensus, thus joining the cluster.
+Configuration changes can cause an OSN to switch between the follower and member roles. 
+ 
+* A follower evaluates incoming config blocks and checks whether it was added to the consenters set. If it was added, 
+  it starts the runtime components that execute consensus, thus becoming a member the cluster.
+* A member evaluates incoming config blocks and checks whether it was removed from the consenters set. If it was 
+  removed, it stops the runtime components that execute consensus, but continues to operate as a cluster follower.
+     
+An OSN operating as a cluster follower is a new feature introduced by this work.
+
+#### Two ways to join     
+When an OSN joins a channel as a **follower**, it start to pull blocks from other OSNs. It will continue
+to do so until it **catches up** with the config block received in the invocation. From then on, it will continue to pull 
+blocks, but will inspect each incoming config block and check whether it is included in the consenters set. 
+When channel admins add it to the consenters set, it will detect that and start the runtime components that execute 
+consensus, thus becoming a member the cluster. 
+
+When an OSN joins a channel as a **member**, it first pulls blocks from other OSNs util it **catches
+up** with the given config block, and then starts the runtime components that execute consensus, thus joining the cluster.
 
 Note that joining an OSN as a member means that the channel was updated to include that OSN in the consenters set before it
 was joined by the participation API. Therefore, during the catch-up process and until the new OSN starts executing 
-consensus, the cluster is a state of reduced fault tolerance. For long chains this might be a problem, since catch-up
+consensus, the cluster is in a state of reduced fault tolerance. For long chains this might be a problem, since catch-up
 can take a long time. The solution is to join the new OSN as a follower. After it catches up with the cluster the 
 channel admin can update the channel config and include it in the consenters set.
 
@@ -239,9 +255,10 @@ informational object described above.
 - When the OSN is a member of the cluster, following the height can help detect connectivity and configuration problems. 
 
 ## Security
-The channel participation API adopts the style of the "operations" API in the orderer. The local orderer channel 
-participation admin is not identified by the MSP, but rather through mutual TLS. Like in the operations API that handles 
-log-spec, the orderer.yaml file specifies:
+The channel participation API adopts the style of the 
+["Operations" API]((https://hyperledger-fabric.readthedocs.io/en/release-2.0/operations_service.html#operations-security)) 
+in the orderer. The local orderer channel participation admin is not identified by the MSP, but rather through mutual TLS. 
+Like in the operations API that handles log-spec, the orderer.yaml file specifies:
 - whether the channel participation API is enabled
 - whether security is enabled for channel participation
 - the client root CAs that are authorized to invoke channel participation commands
@@ -328,13 +345,21 @@ the ledger folder of the channel; otherwise, it will delete it.
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
+The implementation of the channel participation API can be split in two. One part deals with the "API layer" and 
+deals with exposing the API via an HTTP server. The second part receives abstract channel participation commands 
+via a Go interface, and executed the operations described above.  
+  
 ## The API layer
-We intend to extend the "operations API" (package `core/operations`) by adding a handler for channel participation 
-commands, for path `/channels` as described above. These commands will only be enabled if specified explicitly in the `orderer.yaml` 
+The peer and the orderer host an HTTP server that offers a RESTful “operations” API (see: 
+[The Operations Service](https://hyperledger-fabric.readthedocs.io/en/release-2.0/operations_service.html)).
+We intend to hook into the HTTP server that is hosted by the orderer, and expose a new capability 
+`/channel-participation`, which has a single resource  `/channels` as described above. 
+The channel participation commands will only be enabled if specified explicitly in the `orderer.yaml` 
 configuration file. These commands will only be available in the orderer and not in the peer.
 
 The _local orderer participation admin_  role will have the same authentication and authorization
-as the _operations admin_ (i.e. the same mutual TLS certificate). This is expected to change in the future (see below).
+as the _operations admin_ (i.e. the same mutual TLS certificate). We choose this option because it is the simplest 
+to implement at this time. This is expected to change in the future (see below).
 
 ## Participation management
 We intend to implement the channel participation management functionality in a new package 
@@ -410,7 +435,7 @@ barrier. Each channel can hence be deployed on a different set of orderers, achi
 of channels. This design also solves the privacy problem inherent in a shared system channel, and simplifies 
 admin operations.
 
-## Alternative
+## Alternatives
 An alternative design is to keep the system channel running on small cluster, and drop the requirement of app-channel
 OSNs to be a member of that cluster. OSNs belonging to app-channels follow the system channel and fetch blocks like 
 a peer does.
