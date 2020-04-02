@@ -18,7 +18,7 @@ privacy, scalability and operational disadvantages, since the system channel (an
 all channels and of all channel members (at creation time). In this feature we propose to expose a 
 "channel participation" API that would allow a local orderer administrator to join and leave a channel, as well as 
 to list all the channels that the local orderer is part of. This allows a Fabric network to be operated without the use 
-of a system channel, which improve the privacy and scalability of the ordering service and the network as a whole. 
+of a system channel, which improves the privacy and scalability of the ordering service and the network as a whole. 
 
 
 # Motivation
@@ -27,8 +27,8 @@ of a system channel, which improve the privacy and scalability of the ordering s
 Creating channels by issuing a transaction to the system channel presents several disadvantages.
 
 ## Privacy problems
-A system channel requires that all ordering service nodes (OSNs) be aware of all channels. As Fabric depricated the 
-Kafka-based ordering service and moved to Raft (and later is planned to introduce BFT consensus), it is no longer 
+A system channel requires that all ordering service nodes (OSNs) be aware of all channels. As Fabric deprecated the 
+Kafka-based ordering service and moved to Raft, it is no longer 
 desirable that an OSN that services a channel `A` with member organizations `X & Y` be aware of channel `B` with member 
 organizations `Y & Z`. This creates a privacy problem, because the orderer organization (or organizations) now knows 
 that `Y`, `X`'s partner to channel `A`, is also doing business with organization `Z`.  
@@ -41,7 +41,7 @@ channel itself. However, these type of solutions are cumbersome and only partial
 All OSNs are members of the system channel, which creates a scalability problem in a large scale Fabric network. When 
 the number of channels increases, Raft allows us do decouple the consenters sets of the different application channels, 
 achieving linear horizontal scalability in the number of channels. That is, more resource can be added as the number of 
-channels increase. However, the system channel is an exception: decoupling application channel consenters sets as 
+channels increase. However, the system channel is an exception; decoupling application channel consenters sets as 
 described above will cause its number of members to increase, and hence its performance to decrease. Joining and 
 leaving channels without a system channel solves this problem.     
    
@@ -54,7 +54,7 @@ There are several operational problems that affect large scale deployment and hi
 environments using automatic tooling.
      
 Channel creation (using the system channel) utilizes information contained in the system channel - e.g. MSP information 
-of the organization - in order to apply it onto the newly created channel. This create the convoluted situation in 
+of the organization - in order to apply it to the newly created channel. This creates the convoluted situation in 
 which an organization that wants to update its details in the consortium must coordinate that action with third parties 
 that have write privileges to the system channel.
 
@@ -128,7 +128,7 @@ to do so until it catches up with the config block received in the invocation. F
 but will inspect each incoming config block and check whether it is included in the consenters set. If it is, it will 
 start the runtime components that execute consensus, thus joining the cluster. 
 
-If the OSN is in the consenters set, it will continue as **member**, first pulling blocks from other OSMs util it catches
+If the OSN is in the consenters set, it will continue as **member**, first pulling blocks from other OSNs util it catches
 up with the given config block, and then starting the runtime components that execute consensus, thus joining the cluster.
 
 Note that joining an OSN as a member means that the channel was updated to include that OSN in the consenters set before it
@@ -138,8 +138,8 @@ can take a long time. The solution is to join the new OSN as a follower. After i
 channel admin can update the channel config and include it in the consenters set.
 
 The new OSN can pull blocks from other OSNs only if it has authorization to do so. A minimal requirement is that its 
-owning org will be defined in the channel configuration, and that the signature of the new OSN on the `Deliver` 
-request satisfy the `/Channel/Readers` policy.
+owning organization will be defined in the channel configuration, and that the signature of the new OSN on the `Deliver` 
+request satisfies the `/Channel/Readers` policy.
 
 #### Creating a channel genesis block
 The way to create a channel genesis block is by using the `configtxgen`  tool, which already supports the 
