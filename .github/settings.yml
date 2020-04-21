@@ -1,0 +1,16 @@
+repository:
+  name: fabric-rfcs
+  description: RFC process for Hyperledger Fabric. The RFC (request for comments)
+    process is intended to provide a consistent and controlled path for major
+    changes to Fabric and other official project components. https://wiki.hyperledger.org/display/fabric
+  homepage: https://hyperledger.github.io/fabric-rfcs/
+  default_branch: master
+  has_downloads: true
+  has_issues: false
+  has_projects: true
+  has_wiki: false
+  archived: false
+  private: false
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: true
