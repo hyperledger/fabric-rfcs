@@ -148,7 +148,7 @@ blocks, but will inspect each incoming config block and check whether it is incl
 When channel admins add it to the consenters set, it will detect that and start the runtime components that execute 
 consensus, thus becoming a member the cluster. 
 
-When an OSN joins a channel as a **member**, it first pulls blocks from other OSNs util it **catches
+When an OSN joins a channel as a **member**, it first pulls blocks from other OSNs until it **catches
 up** with the given config block, and then starts the runtime components that execute consensus, thus joining the cluster.
 
 Note that joining an OSN as a member means that the channel was updated to include that OSN in the consenters set before it
@@ -371,7 +371,8 @@ invoked in order to start the chain runtime.
 
 When a channel is first joined with a config block, the channel's ledger folder is created, and inside it the config 
 block is saved in a file called `.join-config-block`. The existence of this file is a signal that the join process is 
-active, and should be resumed after restart, even if the orderer crashes or is terminated. 
+active, and should be resumed after restart, even if the orderer crashes or is terminated. The creation of the ledger
+folder with the block in it should be done atomically, for example by creating a temporary folder and renaming it.
 This block will be used as a "bootstrap" for pulling blocks from other OSNs, and its height 
 an indication for when catch-up is complete. If the OSN is a member of the cluster when catch-up
 is complete, the node will start the chain, otherwise it will continue to follow and check 
@@ -395,7 +396,8 @@ authorization mechanisms change, or even if this API is separated on to a differ
 ## Boot sequence of Orderer
 In the boot sequence of the orderer (`orderer/server/main.go`) we will have to check whether the orderer is working
 with or without the system channel, and then start either the current on-boarding code (eventually calling 
-`orderer/common/cluster/Replicator`) or the new channel participation component.
+`orderer/common/cluster/Replicator`) or the new channel participation management sub-component that implements  
+the joining and following go routines for each respective channel.
 
 If the channel participation API is enabled, the periodic scanning of the system channel will also be disabled.
 
