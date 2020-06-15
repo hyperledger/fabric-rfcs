@@ -1,8 +1,3 @@
----
-layout: default
-title: RFC Template
-nav_order: 3
----
 
 - Feature Name: (Reshaping Hyperledger Fabric block dissemination)
 - Start Date: (fill me in with today's date, YYYY-MM-DD)
@@ -27,6 +22,19 @@ However, unfortunately there are shortcomings in the way the gossip component is
 [Background]: #Background
 
 The gossip component in the Fabric peer is built in layers. The bottom most layer is the communication layer which manages a pairwise connection between every two peers, receives requests to send messages to remote peers, and propagates messages from remote peers to layers above it. Information about peers in the network such as their endpoint and organizational association is maintained by the membership layer.
+
+```
+     ______________________________________________________________________
+    |  Message Dissemination | Election | Private Data | Block Replication |
+    |________________________|__________|______________|___________________|
+    |                              Channel                                 |
+    |______________________________________________________________________|
+    |                           Membership                                 |
+    |______________________________________________________________________|
+    |                   communication            |      Identity           |
+    |____________________________________________|_________________________|
+
+```
 
 While the membership layer maintains information that is channel independent such as identity to endpoint mapping and whether certain peers are dead or alive, the channel layer maintains information that is channel-scoped, such as the ledger heights and chaincodes installed that peers publish to one another, as well as which peers participate in the various channels.
 
@@ -57,6 +65,10 @@ Before discussing why or how we should tackle this, let us get familiar with how
 
 To address failover and high-availability, the leader peer periodically sends heartbeats to the followers, and whenever a follower suspects a loss of heartbeats over a too greater period of time, it starts its own leader election campaign where it either finishes as a leader, or as a follower to a different leader with a lower identity identifier. Additionally, leaders step down and become followers if they continuously fail to retrieve blocks from the ordering service.
 
+
+Lastly, peers are also able to replicate blocks from each other in a point to point manner based on a request-response protocol which is less efficient than the streaming one used in the deliver service that exists in the peer and in the orderer. This is implemented in the "Block Replication" layer.
+
+
 # Drawbacks of leader based block dissemination
 [drawbacks]: #drawbacks
 
@@ -82,14 +94,21 @@ This protocol is slower than one where the peer retrieves blocks from the ordere
 
 An alternative block dissemination method is proposed to replace the current block dissemination.
 
-The block dissemination method utilizes the block deliver service that exists on both peers and orderers, and the following shall hold:
+The proposal is to be implemented in two phases:
+
+**Phase I**: Gossip block replication among peers will cease to operate, and the relevant code will be removed. This means that both gossip block replication layer and leader election layers will be removed and each peer will always pull only from the ordering service.
+
+**Phase II**: To address use cases where new peers join an organization and while pulling from the ordering service might be possible, it
+              might be slower than pulling from peers within the organization in cases of across continent deployments.
+              The block dissemination method will then utilize the block deliver service that exists on both peers and orderers, and the following shall hold:
 - At each point in time, every peer is connected to a block source for block retrieval,
 be it either the ordering service or some peer of its choice.
 - In a periodic manner, the peer re-assesses whether it should switch block sources.
-Generally, if a peer is extremely behind the rest, it would prefer peers, however if it is not behind the rest, or is only slightly behind, it would prefer the ordering service.
+Generally, if a peer is extremely behind the rest, it would make sense to prefer peers, however if it is not behind the rest, or is only slightly behind, it would make sense to prefer the ordering service.
 - If applicable, a peer would prefer to retrieve blocks from peers of its own organization over peers from remote organizations.
 - A configuration option will be put in place to fine tune the ledger height threshold that determines whether pulling blocks from peers is preferred over the ordering service.
-Furthermore, a configuration option that determines the frequency of reassessment of the block source will also be put in place.
+The default will be configured to always pull from the ordering service regardless of height.
+- A configuration option that determines the frequency of reassessment of the block source will also be put in place.
 
 Informally, the process for block retrieval is an endless loop that its body performs:
 ~~~~
@@ -110,3 +129,50 @@ If err != nil || lastSelectionTime.Add(maybeSwitchSourceInterval).After(time.Now
 	blockSourceRetriever = nil
 	continue
 ~~~~
+
+# Changes to the gossip code and extraction to a separate repository
+The semantic changes proposed will be addressed with the following code changes:
+
+- The block dissemination mechanisms from the **Message Dissemination** layer will be removed
+- The **Block Replication** and **Election** layers will be removed entirely from the code base
+- The remaining gossip code, modulo the **Private Data** layer will be extracted into a separate repository.
+
+As a result, the new structure will be as following:
+
+```
+     __________________________________________________
+    |  Message Dissemination |      Private Data       |
+    |________________________|_________________________|
+    |                     Channel                      |
+    |__________________________________________________|
+    |                   Membership                     |
+    |__________________________________________________|
+    |         communication            |    Identity   |
+    |__________________________________|_______________|
+
+```
+
+## Extraction to a separate repository
+Except to the private data layer, all of gossip is pretty self contained:
+- It exposes a set of APIs to the peer, namely the ability to sample the membership or send messages to remote peers and receive messages from them.
+- It consumes self defined APIs implemented by the peer, mostly being cryptographic and authentication operations.
+
+
+Hence, we shall extract all layers (but private data) into a separate repository, and the new layer structure in the peer will be thinned down to:
+```
+     __________________________________________________
+    |                        |      Private Data       |
+    |                        |_________________________|
+    |                                                  |
+    |              Vendor of                           |
+    |              hyperledger/fabric-gossip           |
+    |                                                  |
+    |                                                  |
+    |__________________________________________________|
+
+```
+
+This has several advantages:
+
+- **Reduced unit test time and stability**: When building a pull request for the **fabric** repository, gossip tests will now not run and hence this would considerably reduce the time to complete a CI build. This would also remove the success amplification caused by false negatives (notoriously known as CI flakes).
+- **Loose coupling**: This would enable to change or replace the gossip component with more ease, as the boundary between the fabric core is well defined and concrete. Additionally, when done correctly - future open source projects that needs a messaging layer fit for a permissioned and un-trusted environment might be able to re-use the component and then even to contribute to the upstream based on their various needs.
