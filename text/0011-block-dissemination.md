@@ -21,7 +21,7 @@ However, unfortunately there are shortcomings in the way the gossip component is
 # Background:
 [Background]: #Background
 
-The gossip component in the Fabric peer is built in layers. The bottom most layer is the communication layer which manages a pairwise connection between every two peers, receives requests to send messages to remote peers, and propagates messages from remote peers to layers above it. Information about peers in the network such as their endpoint and organizational association is maintained by the membership layer.
+The gossip component in the Fabric peer is built in layers. The bottom most layer is the [communication layer](https://github.com/hyperledger/fabric/tree/master/gossip/comm) which manages a pairwise connection between every two peers, receives requests to send messages to remote peers, and propagates messages from remote peers to layers above it. Information about peers in the network such as their endpoint and organizational association is maintained by the membership layer.
 
 ```
      ______________________________________________________________________
@@ -36,12 +36,15 @@ The gossip component in the Fabric peer is built in layers. The bottom most laye
 
 ```
 
-While the membership layer maintains information that is channel independent such as identity to endpoint mapping and whether certain peers are dead or alive, the channel layer maintains information that is channel-scoped, such as the ledger heights and chaincodes installed that peers publish to one another, as well as which peers participate in the various channels.
+While the [membership layer](https://github.com/hyperledger/fabric/tree/master/gossip/discovery) maintains information that is channel independent such as identity to endpoint mapping and whether certain peers are dead or alive, the [channel layer](https://github.com/hyperledger/fabric/tree/master/gossip/gossip/channel) maintains information that is channel-scoped, such as the ledger heights and chaincodes installed that peers publish to one another, as well as which peers participate in the various channels.
 
 Even though a peer maintains long lasting connections to all peers known to it, it disseminates information about itself to all eligible peers via epidemic dissemination by having peers gossip with each other.
+This is done via the [message dissemination layer](https://github.com/hyperledger/fabric/tree/master/gossip/gossip) which mainly includes routing rules based on information from the membership layer and the [identity layer](https://github.com/hyperledger/fabric/tree/master/gossip/identity).
 
-When a peer broadcasts a message proclaiming some information about itself, it puts its unique identity identifier into the message and signs it. Whenever a peer receives such a message, it performs an in-memory of the full identity of the peer according to the identity identifier, and validates the signature of the message. This calls for the need of a component that replicates known identities among peers, and is termed the identity store.
-Now, possessing the ability to communicate with peers, authenticate their messages and determine which peers are alive and what channels they belong to, gossip can finally be used for peer to peer block dissemination.
+When a peer broadcasts a message proclaiming some information about itself, it puts its unique identity identifier into the message and signs it. Whenever a peer receives such a message, it performs an in-memory lookup of the full identity of the peer according to the identity identifier, and validates the signature of the message using the identity layer.
+
+
+Now, possessing the ability to communicate with peers, authenticate their messages and determine which peers are alive and what channels they belong to, gossip can finally be used for peer to peer block dissemination which is actually implemented as additional instances of routing rules and data structures within the message dissemination layer.
 
 Recall that in Hyperledger Fabric, blocks are produced by the ordering service but are consumed by peers in order to build the world state which is essential for smart contract execution.
 
@@ -61,13 +64,15 @@ Let us discuss the upsides and downsides of each approach:
 The approach eventually chosen was approach 2, and it is the central claim of this document that we should shift to approach 1.
 Before discussing why or how we should tackle this, let us get familiar with how peers designate representatives to pull blocks on behalf of the rest.
 
-**Selecting representative peers for block retrieval**: In every organization, peers run an instance of a leader election protocol to select a single peer, termed the “leader” among the candidates. It is the responsibility of the leader peer to connect to the ordering service, pull blocks and disseminate them through epidemic dissemination (gossip) among the rest of the peers termed “followers”.
+**Selecting representative peers for block retrieval**: In every organization, peers run an instance of a leader election protocol (implemented in the [leader election layer](https://github.com/hyperledger/fabric/tree/master/gossip/election)) to select a single peer, termed the “leader” among the candidates. It is the responsibility of the leader peer to connect to the ordering service, pull blocks and disseminate them through epidemic dissemination (gossip) among the rest of the peers termed “followers”.
 
 To address failover and high-availability, the leader peer periodically sends heartbeats to the followers, and whenever a follower suspects a loss of heartbeats over a too greater period of time, it starts its own leader election campaign where it either finishes as a leader, or as a follower to a different leader with a lower identity identifier. Additionally, leaders step down and become followers if they continuously fail to retrieve blocks from the ordering service.
 
 
-Lastly, peers are also able to replicate blocks from each other in a point to point manner based on a request-response protocol which is less efficient than the streaming one used in the deliver service that exists in the peer and in the orderer. This is implemented in the "Block Replication" layer.
+Lastly, there are two additional layers worth mentioning:
 
+- Peers are also able to replicate blocks from each other in a point to point manner based on a request-response protocol which is less efficient than the streaming one used in the deliver service that exists in the peer and in the orderer. This is implemented in the [block replication](https://github.com/hyperledger/fabric/tree/master/gossip/state) layer.
+- Whenever a block is received from either a peer or an orderer and before it is committed, the peer scans the transactions in the block for private data writes in order to fetch them either locally from storage or from remote peers. This is implemented in the [private data layer](https://github.com/hyperledger/fabric/tree/master/gossip/privdata) that uses gossip as a dependency and is rather tightly coupled with Fabric.
 
 # Drawbacks of leader based block dissemination
 [drawbacks]: #drawbacks
@@ -155,7 +160,7 @@ As a result, the new structure will be as following:
 ## Extraction to a separate repository
 Except to the private data layer, all of gossip is pretty self contained:
 - It exposes a set of APIs to the peer, namely the ability to sample the membership or send messages to remote peers and receive messages from them.
-- It consumes self defined APIs implemented by the peer, mostly being cryptographic and authentication operations.
+- It consumes self defined APIs implemented by the peer, mostly being [cryptographic](https://github.com/hyperledger/fabric/blob/master/gossip/api/crypto.go) and [authentication](https://github.com/hyperledger/fabric/blob/master/gossip/api/channel.go) operations.
 
 
 Hence, we shall extract all layers (but private data) into a separate repository, and the new layer structure in the peer will be thinned down to:
