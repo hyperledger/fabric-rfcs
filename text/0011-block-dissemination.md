@@ -145,12 +145,9 @@ if candidatePeer != nil && pullingFromOrderer
 // based on how far we are from the orderer
 if blockSourceRetriever == nil
 	if ordererLedgerHeight - myHeight > Threshold && peerReplicationEnabled
-		// We are rather far from the orderer so let's see if we have a peer in our org
-		// that is not far from it
-		aheadPeerFromMyOrg = samplePeerFromMyOrgWithHighestLedgerHeight()
-		if ordererLedgerHeight - aheadPeerFromMyOrg.Height < Threshold
-			// There is a peer from our org that is not far from the orderer,
-			// so let's pull from it instead of the orderer
+		// We are rather far from the orderer so let's see if we sampled previously
+		// a peer that is a fit canidate to fetch blocks from
+		if candidatePeer != nil
 			blockSourceRetriever = initializeBlockSourceRetrieval(candidatePeer)
 			pullingFromOrderer   = false
 	else
