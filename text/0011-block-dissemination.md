@@ -99,6 +99,8 @@ This protocol is slower than one where the peer retrieves blocks from the ordere
 
 An alternative block dissemination method is proposed to replace the current block dissemination.
 
+**Note:** Whenever an "orderer" is mentioned, we mean some orderer among the available orderers via some selection policy that is orthogonal to this proposal.
+
 The proposal is to be implemented in two phases:
 
 **Phase I**: Gossip block replication among peers will cease to operate, and the relevant code will be removed. This means that both gossip block replication layer and leader election layers will be removed and each peer will always pull only from the ordering service.
@@ -106,33 +108,66 @@ The proposal is to be implemented in two phases:
 **Phase II**: To address use cases where new peers join an organization and while pulling from the ordering service might be possible, it
               might be slower than pulling from peers within the organization in cases of across continent deployments.
               The block dissemination method will then utilize the block deliver service that exists on both peers and orderers, and the following shall hold:
-- At each point in time, every peer is connected to a block source for block retrieval,
-be it either the ordering service or some peer of its choice.
-- In a periodic manner, the peer re-assesses whether it should switch block sources.
-Generally, if a peer is extremely behind the rest, it would make sense to prefer peers, however if it is not behind the rest, or is only slightly behind, it would make sense to prefer the ordering service.
-- If applicable, a peer would prefer to retrieve blocks from peers of its own organization over peers from remote organizations.
-- A configuration option will be put in place to fine tune the ledger height threshold that determines whether pulling blocks from peers is preferred over the ordering service.
-The default will be configured to always pull from the ordering service regardless of height.
-- A configuration option that determines the frequency of reassessment of the block source will also be put in place.
+- When a peer starts up, or disconnects from an orderer/peer replication session, it polls the orderer to see the difference between its ledger height and the orderer's ledger height.
+If the peer's ledger is too far behind (further than a configurable threshold) then it may (if enabled in configuration) choose a peer from its own organization to replicate from.
+- When choosing a peer to replicate from, that peer needs to be a peer that is not too far behind the orderer. In other words, the difference between the orderer's ledger height and the ledger height of the peer to pull blocks from needs to be less than a configurable threshold.
 
-Informally, the process for block retrieval is an endless loop that its body performs:
+It might be that the peer is far behind the orderer and doesn't see any other peer in its membership view,
+however subsequent sampling of the membership view will reveal a peer that is a good candidate to pull blocks from instead of the orderer.
+Therefore, the process for block retrieval is an endless loop that its body constantly evaluates if it needs
+to pull from the orderer or from the peer based on:
+(1) Whether we are permitted (configuration wise) to pull from peers at all
+(2) How far we are from the ordering service
+(3) How far are other peers in our organization from the ordering service
+
+
 ~~~~
-If blockSource == nil
-    aheadPeerForeignOrgs, aheadPeerFromMyOrg := sampleMembershipView()
-If aheadPeerFromMyOrg.Height - myHeight > Threshold
-	blockSource = aheadPeerFromMyOrg
-If aheadPeerForeignOrgs.Height - myHeight > Threshold && blockSource == nil
-	blockSource = aheadPeerForeignOrgs
-if blockSource == nil
-	blockSource = orderingService
+myHeight = ledger.Height()
+if ordererLedgerHeight == 0
+	ordererLedgerHeight = RetrieveOrdererLedgerHeight()
+
+
+// We can replicate from a peer of our org if:
+// (1) It is permitted in the configuration
+// (2) That peer's height is not too far from the ordering service ledger height
+aheadPeerFromMyOrg = samplePeerFromMyOrgWithHighestLedgerHeight()
+if ordererLedgerHeight - aheadPeerFromMyOrg.Height < Threshold && peerReplicationEnabled
+	candidatePeer = aheadPeerFromMyOrg
+
+// If there exists a canidate peer to be used for block retrieval,
+// and we are currently pulling from the orderer, switch to use a peer.
+if candidatePeer != nil && pullingFromOrderer
+	blockSourceRetriever = initializeBlockSourceRetrieval(candidatePeer)
+	pullingFromOrderer = false
+
+// If we currently not have any block source,
+// check to see which source we want to pull from (orderer/peer)
+// based on how far we are from the orderer
 if blockSourceRetriever == nil
-	blockSourceRetriever = initializeBlockSourceRetrieval(blockSource)
-	lastSelectionTime := time.Now()
-block, err := blockSourceRetriever.RetrieveBlock()
-If err != nil || lastSelectionTime.Add(maybeSwitchSourceInterval).After(time.Now())
-	blockSource = nil
-	blockSourceRetriever = nil
-	continue
+	if ordererLedgerHeight - myHeight > Threshold && peerReplicationEnabled
+		// We are rather far from the orderer so let's see if we have a peer in our org
+		// that is not far from it
+		aheadPeerFromMyOrg = samplePeerFromMyOrgWithHighestLedgerHeight()
+		if ordererLedgerHeight - aheadPeerFromMyOrg.Height < Threshold
+			// There is a peer from our org that is not far from the orderer,
+			// so let's pull from it instead of the orderer
+			blockSourceRetriever = initializeBlockSourceRetrieval(candidatePeer)
+			pullingFromOrderer   = false
+	else
+		// We either have peer replication disabled, are not too far from the orderer,
+		// or all peers we know of are also too far from the orderer,
+		// therefore we pull from the ordering service
+		blockSourceRetriever = initializeBlockSourceRetrieval(orderer)
+		pullingFromOrderer   = true
+
+
+if blockSourceRetriever != nil
+	block, err := blockSourceRetriever.RetrieveBlock()
+	if err != nil
+		pullingFromOrderer = false
+		blockSourceRetriever = nil
+		continue
+	verify and commit block...
 ~~~~
 
 # Changes to the gossip code and extraction to a separate repository
