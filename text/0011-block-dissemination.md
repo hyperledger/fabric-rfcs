@@ -116,9 +116,9 @@ It might be that the peer is far behind the orderer and doesn't see any other pe
 however subsequent sampling of the membership view will reveal a peer that is a good candidate to pull blocks from instead of the orderer.
 Therefore, the process for block retrieval is an endless loop that its body constantly evaluates if it needs
 to pull from the orderer or from the peer based on:
-(1) Whether we are permitted (configuration wise) to pull from peers at all
-(2) How far we are from the ordering service
-(3) How far are other peers in our organization from the ordering service
+*  Whether we are permitted (configuration wise) to pull from peers at all
+*  How far we are from the ordering service
+*   How far are other peers in our organization from the ordering service
 
 
 ~~~~
