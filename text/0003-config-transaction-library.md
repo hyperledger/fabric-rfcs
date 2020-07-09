@@ -1,7 +1,7 @@
 ---
 layout: default
-title: Create a standalone config transaction library that generates channel config creation and update envelopes
-nav_order: 3
+title: Create a standalone config transaction library
+parent: RFCs
 ---
 
 - Feature Name: Create a standalone config transaction library that generates channel config creation and update envelopes
@@ -13,8 +13,8 @@ nav_order: 3
 # Summary
 [summary]: #summary
 
-This feature will implement a consumable standalone library that supports generating configuration envelopes for 
-operations including application and system channel creation, channel configuration updates, and attaching 
+This feature will implement a consumable standalone library that supports generating configuration envelopes for
+operations including application and system channel creation, channel configuration updates, and attaching
 endorsing signatures to generated envelopes.
 
 # Motivation
@@ -33,7 +33,7 @@ and submitting for update.
 [guide-level-explanation]: #guide-level-explanation
 
 Work on this consumable library has already begun in [`fabric/pkg/configtx`](https://github.com/hyperledger/fabric/tree/master/pkg/configtx)
-and tracked in [FAB-17628](https://jira.hyperledger.org/browse/FAB-17628). Example usage has been included in the 
+and tracked in [FAB-17628](https://jira.hyperledger.org/browse/FAB-17628). Example usage has been included in the
 [godocs](https://godoc.org/github.com/hyperledger/fabric/pkg/configtx#pkg-examples) for this package and can be referenced for external tooling.
 
 # Reference-level explanation

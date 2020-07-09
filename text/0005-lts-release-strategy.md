@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Fabric LTS release strategy
-nav_order: 3
+parent: RFCs
 ---
 
 - Feature Name: Fabric LTS release strategy

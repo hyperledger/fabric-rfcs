@@ -1,6 +1,6 @@
 ---
 layout: default
-title: chaincode_go_new_programming_model
+title: Chaincode Go new programming model
 parent: RFCs
 ---
 
@@ -20,7 +20,7 @@ This new implementation will be situated in a new repo `fabric-contract-api-go` 
 # Motivation
 [motivation]: #motivation
 
-The existing programming model in Go requires a certain amount of boiler plate code to be written by the developer, things such as routing in the Invoke function, converting data from its arg type to the usable type in the transaction and from its transaction type to the return type. The new programming model as implemented in Java and Node reduces this boiler plate for developers and minimizes the amount of code they have to write to implement their smart contract. 
+The existing programming model in Go requires a certain amount of boiler plate code to be written by the developer, things such as routing in the Invoke function, converting data from its arg type to the usable type in the transaction and from its transaction type to the return type. The new programming model as implemented in Java and Node reduces this boiler plate for developers and minimizes the amount of code they have to write to implement their smart contract.
 
 The existing programming model in Go provides zero way for an outside application or developer (with access to the network) to know the interface that the chaincode provides. By moving to the new programming model metadata will be made available for Go chaincode allowing developers to build external applications for interacting with the smart contract without needing to see the code.
 
