@@ -51,7 +51,7 @@ The client credentials (private key) are never passed to the Gateway.  Client ap
 
 Submitting a transaction is a two step process (performed by the client SDK):
 - __Endorse__
-  - The client creates a ProposedTransaction message, which contains a SignedProposal message as defined in `fabric-protos/peer/proposal.proto` and signed with the user's identity.  The ProposedTreansaction message also contains other optional properties, such as the endorsing orgs if the client wants to specify that.
+  - The client creates a ProposedTransaction message, which contains a SignedProposal message as defined in `fabric-protos/peer/proposal.proto` and signed with the user's identity.  The ProposedTransaction message also contains other optional properties, such as the endorsing orgs if the client wants to specify that.
   - The `Endorse` service is invoked on the Gateway, passing the ProposedTransaction message
     - The Gateway will determine the endorsement plan for the requested chaincode and forward to the appropriate peers for endorsement. It will return to the client a `PreparedTransaction` message which contains a `Envelope` message as defined in `fabric-protos/common/common.proto`.  It will also contain other information, such as the return value of the chaincode function and the transaction ID so that the client doesn't necessarily need to unpack the `Envelope` payload.
 - __Submit__
