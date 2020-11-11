@@ -76,6 +76,8 @@ RSA testing has been made in the past:
 * [b17e846](https://github.com/hyperledger/fabric/commit/b17e846) [FAB-3441](https://jira.hyperledger.org/browse/FAB-3441) bccsp/sw ECDSA/RSA sign test coverage
 * [7aa43d5](https://github.com/hyperledger/fabric/commit/7aa43d5) [FAB-3441](https://jira.hyperledger.org/browse/FAB-3441) bccsp/sw ECDSA/RSA verify test coverage
 
+In order to test this end to end is also required an integration test that instantiates Fabric nodes with RSA certificates.
+
 # Dependencies
 [dependencies]: #dependencies
 
