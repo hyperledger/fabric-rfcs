@@ -35,52 +35,56 @@ A prototype implementation of FPC is available as Hyperledger Lab on github (htt
 
 # Motivation
 [motivation]: #motivation
-
+<!-- 
+    Description of section: General motivation on why Fabric does not cover use-cases having strong privacy requirement and that TEE/FPC can close that gap.
+    Note: At this level there is no distinction between full FPC and FPC Lite and hence use the term FPC through-out without qualification 
+    and also still mention all possible use-cases. 
+    The distinction is done later in the architecture/design section
+-->
 FPC is motivated by the many use cases in which it is desirable to embody an application in a Blockchain architecture, but where in addition to the existing Integrity assurances, the application also requires privacy. This may include private voting, sealed bid auctions, operations on sensitive data such as regulated medical or genomic data, and supply chain operations requiring contract secrecy. With Fabric's current privacy mechanisms, these use cases are not possible as they still require the endorsement nodes to be fully trusted.
 For example, the concept of channels and Private Data allows to restrict chaincode data sharing only within a group of authorized participants, still when the chaincode processes the data it is exposed to the endorsing peer in clear. In the example of a voting system, where a government may run an endorsing peer it is clear that this is not ideal.
 
+<!-- Below section does not apply to FPC Lite but as we haven't introduced that and this motivation can be address in a later extentions we still mention it here -->
 A second motivation for FPC is its integrity model based on hardware-enabled remote cryptographic attestation; this model can provide similarly high confidence of integrity to the standard Fabric model of integrity through redundancy, but using less computation and communication. With TEE-based endorsement and remote attestation, a new set of endorsement policies are made possible, which can reduce the number of required endorsements and still provide sufficient assurance of integrity for many workloads.
 
 FPC adds another line of defense around a chaincode. Over time and with continued development of support for other languages and Trusted Execution Environments, we intend FPC to become the standard way to execute many or even most chaincodes in Fabric, similar to what HTTPS has become for the Web.
 
 
-# Guide-level explanation
-[guide-level-explanation]: #guide-level-explanation
+# User Experience
+[functional-view]: #functional-view
+<!-- 
+    Description of section: This section describes the functional view as experienced by developers of chaincode and applications interacting with it as well as admins deploying them.
+    Note: At this level there is no distinction between full FPC and FPC Lite and hence use the term FPC through-out without qualification. 
+    The distinction is done later in the architecture/design section
+-->
 
 Fabric Private Chaincode is best thought of as a way of running smart contract chaincode inside a Trusted Execution Environment (TEE), also called an _enclave_, for strong assurance of privacy and a more computation-efficient model of integrity.
-Programs executed in the TEE are held in encrypted memory even while running, and this memory can't be read in the clear even by a root user or privileged system process. Chaincode state is encrypted with keys only known to the chaincode. Each chaincode runs in its own TEE to provide the best possible isolation among chaincodes on an endorsing peer. Because the execution is opaque, a modified set of integrity controls is also implemented in order to be certain that what's running is exactly what is intended, without tampering. With FPC’s hardware-rooted cryptographic integrity mechanisms, it requires less redundancy of computation than in the standard model of Fabric to get a high level of trust.
-With FPC a chaincode can process sensitive data, such as cryptographic material, health-care data, financial data, and personal data; without revealing it to the endorsing peer on which it runs.
+Programs executed in the TEE are held in encrypted memory even while running, and this memory can't be read in the clear even by a root user or privileged system process. Chaincode state is encrypted with keys only known to the chaincode. Each chaincode runs in its own TEE to provide the best possible isolation among chaincodes on an endorsing peer. Because the execution is opaque, a modified set of integrity controls is also implemented in order to be certain that what's running is exactly what is intended, without tampering.
+<!-- commented out as not provided by FPC Lite and anyway not crucial for this section:
+With FPC’s hardware-rooted cryptographic integrity mechanisms, it requires less redundancy of computation than in the standard model of Fabric to get a high level of trust.
+-->
+With FPC, a chaincode can process sensitive data, such as cryptographic material, health-care data, financial data, and personal data; without revealing it to the endorsing peer on which it runs.
 
 Overall, FPC can be considered an addition to Fabric wherein all chaincode computation relies only on the correctness of data provided by an authenticated Client or computed inside of and signed by a validated enclave.
 The Endorsing Peer outside of the enclave is considered untrusted.
-For this reason all transaction data and chaincode state are encrypted by default in a way that only the FPC chaincode can access them in clear.
+For this reason, all transaction data and chaincode state are encrypted by default in a way that only the FPC chaincode can access them in clear.
 
 Writing chaincode for FPC should come natural to developers familiar with Fabric as the programming model (e.g., chaincode lifecycle, chaincode invocations and state) is the same as for normal Fabric chaincode.
 The main differences are a (for now at least) different programming language (C++) and a Shim API which implements a subset of the current Fabric API.
-The Shim is responsible to provide access to the ledger state as maintained by the `untrusted` peer. In particular, the FPC Shim encrypts all state data that is written to the ledger and decrypts them when retrieved later.
-See the [FPC Shim](#fpc-shim) section for more information.
+The Shim is responsible to provide access to the ledger state as maintained by the `untrusted` peer. In particular, the FPC Shim, under the cover and transparent to the developer, encrypts all state data that is written to the ledger and decrypts them when retrieved later. Similarly, it also encrypts and authenticates all interaction with the applications, see below. Lastly, it attests to the result and the state update based on the enclave's hardware identity to provide a hardware-trust rooted endorsement.
 
 Applications can interaction with a FPC chaincode using an extension of the Fabric Client Go SDK.
 This FPC extension exposes the Fabric `gateway` interface and transparently encrypts and authenticates all interactions with a FPC chaincode.
-See the [FPC Client SDK](#fpc-client) section for more information.
 
 <!-- In general, a developer can write chaincode largely without having to be aware that the code executes within a Trusted Execution Environment (TEE), often referred to as an Enclave. However, to understand the architecture and security underpinning it we introduce in the following several new concepts and terms. Except where noted otherwise, all elements of the architecture described below reside on a Fabric Peer. -->
 
-<!-- ## Terminology:
 
-* Attestation: An important cryptographic feature of Trusted Execution Environments by which the hardware can reliably state exactly what software it is running. This statement is signed by the hardware so that anyone reading it can verify that the statement came from an actual valid and up-to-date TEE. The Attestation can cover both the software portion of the TEE itself as well as any program to be run in it. This attestation takes the form of a "quote" containing (among other things) a measurement of the code and data in the TEE and its software version number, which is signed by the TEE and can be verified by anyone using well known Public Key Infrastructure technology.
-
-* Trusted Execution Environment (TEE): The isolated secure environment in which programs run in encrypted memory, unreadable even by privileged users or system processes. FPC chaincodes run in TEEs.
-
-* Enclave: The TEE technology used for the initial release of FPC will be Intel SGX.  In SGX terminology a TEE is called an _enclave_.  In this document and in general, the terms TEE and Enclave are considered interchangeable.  Intel SGX is the first TEE technology supported as, to date, it is the only TEE with mature support for remote attestation as required by the FPC integrity architecture.  However, our architecture is generic enough to also allow other implementations based on AMD SEV-SNP, ARM TrustZone, or other TEEs.
-
-Note on Terminology: The current feature naming scheme includes several elements that originated in Intel SGX and therefore use the formerly proprietary term Enclave rather than TEE. Earlier versions of this RFC stated an aim to replace the term Enclave with TEE, but since then the two terms have come to be accepted as interchangeable. We therefore decided not to try to expunge the term, but to use it as the industry has begun to do, to refer to various TEEs. The project team currently participates in the new Confidential Computing Consortium which aims to promote standards for deployment of workloads across TEEs/Enclaves, and we intend to align with their terminology as it evolves. -->
 
 
 To illustrate the interaction between an application and a FPC chaincode see the following figure. In particular, this figure highlights the encrypted elements of the FPC architecture.
 
 
-- TODO fix this image; here we show the FPC flow
+***TODO fix this image by removing the Ledger Enclave and the FPC registry box, both of which a normal user does not see***
 
 ![Encryption](../images/fpc/high-level/FPC-Encryption.png)
 
@@ -93,21 +97,6 @@ Encrypted elements of the FPC architecture (over and above those in Fabric, such
 
 Note that with the exception of the results, where also a legitimate requestor knows the secret keys, all secret/private keys are known only by to the enclaves or, for memory encryption, to the HW memory encryption engine (with the hardware also enforcing that only legitimate enclaves have access to the unencrypted memory).
 
-## Example FPC Chaincode
-
-- TODO: @Jeb can you please make pass here and replace this section with the analytics example
-
-<!-- Example of Designing an Auction System using Fabric Private Chaincode
-
-Even with the inherent integrity and privacy features in Fabric and FPC, chaincodes must be designed thoughtfully to defeat possible leaks of information through manipulation of a Peer. For example, we examine the use case of a simple auction, where one of the participants is running an FPC peer and wants to execute a rollback attack to expose the private bid information of another participant. For more details on this attack we also refer to our paper (see [prior art](#prior-art) section). For a more real-world application and comprehensive end-to-end code we refer to our Spectrum Auction Demo, see [Application Overview](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/demo), the [Specification](https://docs.google.com/document/d/1YUF4mzzuybzWk3fbXbTANWO8-tr757BP85qcwE7gQdk/edit) and the [Chaincode](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/demo/chaincode/fpc).
-
-In our use case, the malicious Peer leverages the fact that transactions are executed in chaincode before ordering (Pre-Order Execution), and changes to the world state are only committed to the blockchain afterward.
-In a naive implementation of the auction chaincode in a TEE, after bids have been submitted by other participants, a malicious Peer can roll back its own version of world state to a time when fewer bids were committed and perform an Evaluate transaction without submitting it to the Orderer. This could reveal private information about the earlier bids. In other words, the adversary may use the Chaincode Enclave as a decryption oracle. In order to thwart these rollback attacks, it is necessary to create a barrier in the form of a “close auction” (or equivalent) transaction which commits all bids to the world state, such that only after this commitment can an Evaluate transaction be executed. With FPC, the Evaluate transaction can check the barrier through the use of the Trusted Ledger Enclave; ensuring that the barrier is committed to the ledger and the auction has been closed before performing its evaluation logic. -->
-
-***Hello World example***
-
-As a starting point e provide a detailed `HelloWorld` [Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/examples) that guides new FPC developers through the process of writing their first FPC chaincode and deploy it on local test network.
-In the remainder of this section we use parts of this tutorial to describe the development process of a FPC chaincode.
 
 ## FPC Chaincode Development
 
@@ -146,12 +135,14 @@ TODO: software requirements for development (e.g., Intel SGX SDK); to ease the p
 
 ### FPC Chaincode
 
+- TODO make whole section shorter and mesh in the reference to the hello world example.
+
+***Hello World example***
+
+As a starting point e provide a detailed `HelloWorld` [Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/examples) that guides new FPC developers through the process of writing their first FPC chaincode and deploy it on local test network.
+In the remainder of this section we use parts of this tutorial to describe the development process of a FPC chaincode.
 
 
-
-
-
-- TODO make this shorter
 
 Following the principles of Fabric's chaincode model, a FPC chaincode can interact with the ledger using methods provided by a shim.
 The FPC Shim is composed of two parts called "stubs", one residing inside the enclave (Referred to in our diagrams as "FPC_stub_enclave") and another one outside the enclave (Referred to as "FPC_stub"). The portion of the shim interface exposed to the FPC chaincode inside the enclave is written primarily in C++, whereas the external counterpart is written in Go and mainly responsible for communication between the Peer and the FPC chaincode.
@@ -272,12 +263,13 @@ The FPC runtime is responsible for creating the enclave when the FPC chaincode i
 
 - TODO configure your IAS credentials for attestation
 
-- prepare your peers: add externalLauncher to `core.yaml`
+- prepare your peers: add FPC external builder and launcher scripts to the `externalBuilders` section in `core.yaml`
 
 The deployment of a FPC chaincode consists of multiple steps; it begins with the standard Fabric 2.0 Lifecycle mechanism to produce a chaincode definition that all participants agree upon. FPC requires adding some additional metadata to the chaincode definition, in particular a cryptographic hash (called the MRENCLAVE in the initial version of FPC) that identifies the code running inside the Chaincode Enclave. The FPC SDK provides tools to generate this MRENCLAVE in a way that enables all parties to screen the code upfront and produce this hash. Note that this is crucial for the security provided by the TEE and is part of the attestation capabilities.
 For more details on Intel SGX remote attestation we refer to the vendor [documentation](https://software.intel.com/content/www/us/en/develop/topics/software-guard-extensions/attestation-services.html).
 
-Once the chaincode definition for an FPC chaincode has been approved by the consortium, a Chaincode Enclave is created by calling `peer lifecycle chaincode createenclave`. This command triggers the creation of an enclave and registers it at the FPC Registry.  The registration includes the attestation of the Chaincode Enclave.
+Once the chaincode definition for an FPC chaincode has been approved by the consortium, a Chaincode Enclave is created via a new `initEnclave` lifecycle management command. This command triggers the creation of an enclave and registers it at the FPC Registry.  The registration includes the attestation of the Chaincode Enclave.  For more information on additional management commands, see the [FPC Management API document](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/docs/design/fabric-v2%2B/fpc-management.md).
+<!-- as we have both cli and go admin api, removed cli command invocation and upleveled. -->
 
 The FPC Registry stores all attestation reports, as signed by the TEE vendor. 
 The attestation reports include information on what chaincode is running; what specific TEE is in use, including version number and hash of the chaincode (MRENCLAVE), and including the public keys of the enclave. 
@@ -314,21 +306,47 @@ In order to focus the development resources on the core components of FPC, the M
 
 
 
-# Reference-level explanation
-[reference-level-explanation]: #reference-level-explanation
+# Architecture
+[architecture]: #architecture
+<!-- 
+    Description of section: This section makes the FPC vs FPC Lite distinction (& related restrictions)
+    and then provides an outline of the architecture of FPC Lite.
+    Note: we should use here preferably the term FPC Lite rather than FPC.
+-->
 
-- TODO describe components in detail
 
-- Chaincode Enclave; split in trusted and untrusted component
+***TODO describe components in detail***
+- *Chaincode Enclave; split in trusted and untrusted component*
+- *Internal Transaction Flow*
+	- *Enclave Creation / Registration*
+	- *Invocations and Validation*
+- *Enclave Registry Details*
 
-- Internal Transaction Flow
 
-	- Enclave Creation / Registration
+## FPC Lite
 
-	- Invocations and Validation
+The first realization of FPC is called *FPC Lite* and will support a subset of the features mentioned in [Motivation](#motivation) Section.  
+The focus of FPC Lite is on confidentialty and the class of application which do not require release of sensitive data conditioned on private ledger state.  Coverage of the larger class of private applications and potential performance improvement over fabric are left for a future extension.  
+(Note that the design documents referenced in [Design Documents](#design-documents) already outline the path for such extensions.)
 
-- Enclave Registry Details
+The reason for supporting only a sub-class of applications is that FPC Lite will not provide rollback protection,
+a feature which would require too invasive changes in Fabric for an initial version.
+However, these applications still cover very interesting use-cases currently not covered by Fabric.
+***TODO: @Jeb can you please make pass on below and replace this section as appropriate with info from HBP, UMBC or alike***
+For example, a large and important use-case covered is federated learning on private sensitive information. In particular in the domain of health data it could unleash a huge potential which is currently untapped.
 
+To illustrate this, consider the case of training a model, e.g, Convolutional Neural Network (CNN), for detecting brain abnormalities such as precancerous lesions or aneurysms. To achieve high accuracy we need considerably more data than single entities (e.g., a hospital) usually has. Yet regulations like HIPAA make sharing brain CT scans or MRI studies, labeled by radiologists, hard if not impossible. Furthermore, to allow widest use of a derived model, it should be freely shareable without any privacy concerns. Lastly, to provide the necessary accountability and audit trail, such a federated application is ideally tied to a ledger. While there are cryptographic solutions to perform federated learning in a strongly private manner, e.g., based on differential privacy, for such a setting, they are very expensive in terms of computation and, in particular, communication complexity.
+
+A sketch on how this could be solved as follows:
+- The overall approach would be to follow the [“PATE, for Private Aggregation of Teacher Ensembles”](https://blog.acolyer.org/2017/05/09/semi-supervised-knowledge-transfer-for-deep-learning-from-private-training-data/) approach to achieve the necessary strong privacy, i.e., differentially private, guarantees on the learned model to be released to the public.
+- Above papers assume that the learning of the privacy-preserving model is performed by a trusted entity. In our example, an FPC Lite chaincode will perform this role, ensuring the integrity of the computation as well as the confidentiality of the training data.
+- More specifically, the participating hospitals would compute separate teacher models on their own data and send the resulting model encrypted and signed to the chaincode. The chaincode would authenticate and validate the teacher models based on parameters apriori agreed and built into the chaincode, accumulate and record the submission in the ledger and, once sufficient inputs are received, will perform privately inside the chaincode the final student model computation. It will then publish the resulting model, e.g., via put_public_state,on the ledger.
+
+Note such an application would not release any sensitive data conditioned on private state and hence meets our criteria.
+
+***TODO: we should also mention the other limitations (i.e., single and no composite key and no getCreator/MSP identities). Maybe best done by moving the [Fabric Features Note (yet) Supported](#fabric-features-not-yet-supported) section after the [Architecture](#architecture) Section and adding it there?***
+
+## Overview of Architecture
 
 - TODO Add the detailed picture here
 
@@ -340,7 +358,6 @@ In order to focus the development resources on the core components of FPC, the M
 For MVP, the FPC Shim comprises a subset of the standard Fabric Shim and is complemented in the future.
 These details are documented separately in the Shim header file itself: **[ecc_enclave/enclave/shim.h](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/ecc_enclave/enclave/shim.h)**
 As described above, FPC follows the programming model used in the standard Fabric Go shim and offers a C++ based FPC Shim to FPC chaincode developers.
-
 
 ## FPC Transaction Validation
 
@@ -361,14 +378,6 @@ This process is similar to the validation step as described above; the FPC Clien
 Also referred to as the Enclave Registry Chaincode (ERCC), this is a component which maintains a list of all Chaincode Enclaves deployed on the peers in a channel.
 The registry associates with each enclave their identity, associated public keys and an attestation linking them. Additionally, the registry manages chaincode specific keys, including a chaincode public encryption key, and facilitates corresponding key-management among authorized Chaincode Enclaves. Lastly, the registry also records information required to bootstrap the validation of attestation. All of this information is committed firmly on the ledger. This enables any Peer in the Channel (even those without SGX) to inspect the Attestation results before taking actions such as connecting to that chaincode or committing transactions produced by an FPC chaincode. Moreover, clients can query the registry to retrieve the chaincode public encryption keys of a particular FPC chaincode so they can send privately transaction proposals for endorsement.
 
-
-
-
-## Management API Changes
-
-While the management API for Fabric is mostly unchanged, some modifications are needed for FPC to work.
-In particular, FPC extends the Fabric's lifecycle API with additional commands to create an FPC enclave and handle the key provisioning.
-These are detailed separately in the [FPC Management API document](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/docs/design/fabric-v2%2B/fpc-management.md)
 
 
 ## Deployment Process (in detail)
@@ -509,6 +518,10 @@ The FPC team welcomes the community’s advice on how each of these touch-points
 
 ## Design Documents
 
+***TODO: Also reference the two google design docs for FPC Lite (e.g., because of the security analysis in the TL-less doc): [FPC without Trusted Ledger](https://docs.google.com/document/d/1jbiOY6Eq7OLpM_s3nb-4X4AJXROgfRHOrNLQDLxVnsc/), [FPC externalized endorsement validation](https://docs.google.com/document/d/1RSrOfI9nh3d_DxT5CydvCg9lVNsZ9a30XcgC07in1BY)***
+
+***TODO: Also reference the [interfaces.md](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/docs/design/fabric-v2%2B/interfaces.md)?***
+
 The full detailed protocol specification of FPC is documented in a series of UML Sequence Diagrams. Specifically:
 
 - The [fpc-lifecycle-v2](../images/fpc/full-detail/fpc-lifecycle-v2.png) diagram describes the lifecycle of a FPC chaincode, focusing in particular on those elements that change in FPC vs. regular Fabric.
@@ -598,3 +611,13 @@ this includes in particular the Intel SGX SDK and a Fabric installation for test
 It is setup in a way which still also you to easily edit files on the host using your normal development environment.
 
 The FPC team’s current practices include both unit and integration testing, using Docker to automate and Travis for CI/CD. With the Auction Demo scenario, we also include a representative example which illustrates end-to-end how to design, build and deploy a secure FPC application across the complete lifecycle.  In addition, this demo serves as an additional comprehensive integration test for our CI/CD pipeline. Once FPC becomes maintained as an official Fabric project, we will explore publishing our (existing) FPC-specific docker images in a registry.
+
+# Terminology:
+
+* Attestation: An important cryptographic feature of Trusted Execution Environments by which the hardware can reliably state exactly what software it is running. This statement is signed by the hardware so that anyone reading it can verify that the statement came from an actual valid and up-to-date TEE. The Attestation can cover both the software portion of the TEE itself as well as any program to be run in it. This attestation takes the form of a "quote" containing (among other things) a measurement of the code and data in the TEE and its software version number, which is signed by the TEE and can be verified by anyone using well known Public Key Infrastructure technology.
+
+* Trusted Execution Environment (TEE): The isolated secure environment in which programs run in encrypted memory, unreadable even by privileged users or system processes. FPC chaincodes run in TEEs.
+
+* Enclave: The TEE technology used for the initial release of FPC will be Intel SGX.  In SGX terminology a TEE is called an _enclave_.  In this document and in general, the terms TEE and Enclave are considered interchangeable.  Intel SGX is the first TEE technology supported as, to date, it is the only TEE with mature support for remote attestation as required by the FPC integrity architecture.  However, our architecture is generic enough to also allow other implementations based on AMD SEV-SNP, ARM TrustZone, or other TEEs.
+
+Note on Terminology: The current feature naming scheme includes several elements that originated in Intel SGX and therefore use the formerly proprietary term Enclave rather than TEE. Earlier versions of this RFC stated an aim to replace the term Enclave with TEE, but since then the two terms have come to be accepted as interchangeable. We therefore decided not to try to expunge the term, but to use it as the industry has begun to do, to refer to various TEEs. The project team currently participates in the new Confidential Computing Consortium which aims to promote standards for deployment of workloads across TEEs/Enclaves, and we intend to align with their terminology as it evolves.
