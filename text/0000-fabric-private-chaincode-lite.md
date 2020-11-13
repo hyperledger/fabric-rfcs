@@ -237,15 +237,25 @@ In order to focus the development resources on the core components of FPC, the M
 
 ## FPC Lite
 
-The first realization of FPC is called *FPC Lite* and will support a subset of the features mentioned in [Motivation](#motivation) Section.  
-The focus of FPC Lite is on confidentialty and the class of application which do not require release of sensitive data conditioned on private ledger state.  Coverage of the larger class of private applications and potential performance improvement over fabric are left for a future extension.  
-(Note that the design documents referenced in [Design Documents](#design-documents) already outline the path for such extensions.)
+The first realization of FPC is called *FPC Lite*.
+The framework enables a class of applications which do not require release of sensitive data conditioned on private ledger state.
+This class includes smart contracts which operate on sensitive medical data, or enforce confidential supply chain agreements.
+Arguably in fact, these can be implemented without requiring any proof that some data is committed on the ledger. 
+
+For example, Federated Learning on private sensitive information is a large and important use-case which FPC Lite enables securely on Hyperledger Fabric.
+
+Coverage of the larger class of private applications and potential performance improvement over Fabric are left for a future extension.
+The design documents referenced in [Design Documents](#design-documents) already outline the path to realize such extensions.
+
 
 The reason for supporting only a sub-class of applications is that FPC Lite will not provide rollback protection,
 a feature which would require too invasive changes in Fabric for an initial version.
 However, these applications still cover very interesting use-cases currently not covered by Fabric.
 ***TODO: @Jeb can you please make pass on below and replace this section as appropriate with info from HBP, UMBC or alike***
-For example, a large and important use-case covered is federated learning on private sensitive information. In particular in the domain of health data it could unleash a huge potential which is currently untapped.
+For example, a large and important use-case covered is Federated Learning on private sensitive information.
+In particular in the domain of health data it could unleash a huge potential which is currently untapped.
+
+### Privacy-enhanced Federated Learning on FPC Lite
 
 To illustrate this, consider the case of training a model, e.g, Convolutional Neural Network (CNN), for detecting brain abnormalities such as precancerous lesions or aneurysms. To achieve high accuracy we need considerably more data than single entities (e.g., a hospital) usually has. Yet regulations like HIPAA make sharing brain CT scans or MRI studies, labeled by radiologists, hard if not impossible. Furthermore, to allow widest use of a derived model, it should be freely shareable without any privacy concerns. Lastly, to provide the necessary accountability and audit trail, such a federated application is ideally tied to a ledger. While there are cryptographic solutions to perform federated learning in a strongly private manner, e.g., based on differential privacy, for such a setting, they are very expensive in terms of computation and, in particular, communication complexity.
 
@@ -408,7 +418,7 @@ When clients connect to an FPC chaincode, they can gain an assurance that it is 
 
 The Ordering Service is treated as a trusted element in FPC networks, but securing it is outside the scope of FPC. Likewise, FPC does not directly address problems of Clients attempting to manipulate the Chaincode's output by providing bad input; this must always be a matter of application-specific code discipline, and relying on the existing features native to Fabric which provide resilience and integrity through redundancy and distribution. Ultimately, FPC is complementary to these existing features of Fabric.
 
-## TEE platform support
+## TEE Platform Support
 
 Currently, our FPC Runtime and the SDK focuses on [Intel&reg; SGX SDK](https://github.com/intel/linux-sgx).
 However, components such as the FPC Registry are already designed to support attestations by other TEE platforms as they mature and gain remote attestation capabilities. Also, other components such as the Go part of the FPC Shim don't have an Intel&reg; SGX depency and can easily be reused. We plan to explore other TEE platforms such as AMD SEV in the future.
@@ -418,7 +428,21 @@ However, components such as the FPC Registry are already designed to support att
 FPC-Lite does ***not*** require any changes to Fabric.
 We recommend reading the chaincode development and deployment sections to know more about the private chaincode coding language and the use of Fabric's external builder and launcher capabilities.
 
-## Design Documents
+## Extensions
+
+FPC Lite is not designed for chaincodes which are implemented to release confidential data once some conditions are met on the ledger.
+In fact, although chaincodes can protect the confidentiality and integrity of any data that they store on the ledger, they have no means to verify whether such data has been committed.
+Hence, their hosting peer might provide them with legitimate yet stale, or non-committed, ledger data.
+
+FPC Lite is therefore not suitable for the class of applications that require a proof of committed ledger data.
+This includes, for example, smart contracts implementing sealed auctions, or e-voting mechanisms.
+Arguably, these applications require checking whether a condition is met (e.g., "if the auction is closed") in order to release confidential data (e.g., "then the highest bid is X").
+
+Extensions to the FPC Lite architecture can enable coverage of this larger class of private applications.
+The design documents referenced in [Design Documents](#design-documents) already outline the path to realize such extensions.
+
+
+## References to Design Documents
 
 ***TODO: Also reference the two google design docs for FPC Lite (e.g., because of the security analysis in the TL-less doc): [FPC without Trusted Ledger](https://docs.google.com/document/d/1jbiOY6Eq7OLpM_s3nb-4X4AJXROgfRHOrNLQDLxVnsc/), [FPC externalized endorsement validation](https://docs.google.com/document/d/1RSrOfI9nh3d_DxT5CydvCg9lVNsZ9a30XcgC07in1BY)***
 
