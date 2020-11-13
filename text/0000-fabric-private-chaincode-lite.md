@@ -28,11 +28,13 @@ nav_order: 3
 # Summary
 [summary]: #summary
 
-This RFC aims to introduce a new security feature for Hyperledger Fabric called Fabric Private Chaincode (FPC) that enhances data confidentiality for chaincodes by executing them in a Trusted Execution Environment (TEE), such as Intel SGX.
+This RFC aims to introduce a new security feature for Hyperledger Fabric called Fabric Private Chaincode (FPC) that enhances data confidentiality for chaincodes by executing them in a Trusted Execution Environment (TEE), such as Intel&reg; SGX.
 
 FPC is a framework to develop and run chaincodes with strong privacy guarantees.
 With FPC, a chaincode can process transaction arguments and state without revealing/exposing the contents to anybody, including the endorsing peers.
-That is, the contents of a FPC transaction is encrypted in a way that only the FPC chaincode can decrypt and then process it. The resulting state updates are encrypted by default by the FPC chaincode with keys only known to the chaincode.
+In particular, clients can establish a secure channel with the FPC-Lite chaincode (as opposed to the peer hosting the chaincode) which preserves the confidentiality of trasaction arguments and responses.
+Also, the TEE preserves the confidentiality of the data, even from the hosting peer, while the chaincode processes it.
+Finally, the TEE allows to maintain a secret cryptographic key, which the chaincode uses to encrypt and protect the integrity of any data that it stores on the ledger.
 
 As a result, other parties (both clients and peers) cannot examine the state of the transactions either in the chaincode or on the ledger. Hence, FPC helps to protects sensitive data even from compromised endorsing peers and other unauthorised parties.
 FPC provides the capabilities to verify that a chaincode and the data are protected, that is, Fabric peers and clients can receive cryptographic assurance that the correct chaincode is being run without tampering inside the TEE by means of a hardware-based remote attestation.
@@ -196,7 +198,7 @@ The deployment is described in detail below and can be found in the [Full Detail
 
 - In the initial version of FPC, chaincode must be written in C/C++ using our FPC SDK. More language support is planned.
 - FPC currently is installed on a Peer, and Endorsing Peers must use the FPC chaincode runtime based on externalBuilders.
-- FPC currently requires that the Endorsing Peers run on an Intel x86 machine with the SGX feature enabled. We plan to add support for other Trusted Execution Environments in future releases.
+- FPC currently requires that the Endorsing Peers run on an Intel&reg; x86 machine with the SGX feature enabled. We plan to add support for other Trusted Execution Environments in future releases.
 - To simplify the development as much as possible and provide chaincode developers the same experience as with "traditional" chaincode development, FPC requires developers to use a chaincode SDK that abstracts the TEE specific implementation details as much as possible.
 - FPC’s runtime relies on the external builder/launcher feature of Fabric, and the attestation infrastructure requires the installation of an FPC Registry chaincode in the channel.
 
@@ -327,8 +329,8 @@ This section details the turn-up process for all elements of FPC, including an e
 
 	Next, the Chaincode enclave participates in an attestation protocol.
 	This protocol may be different depending on the TEE technology used.
-	In the case of Intel SGX, the enclave produces a quote that allows to verify that a legitimate TEE is running a correct version of software and a particular FPC Chaincode (identified through MRENCLAVE).
-	This quote is then sent to the Intel Attestation Service (IAS) for validation.
+	In the case of Intel&reg; SGX, the enclave produces a quote that allows to verify that a legitimate TEE is running a correct version of software and a particular FPC Chaincode (identified through MRENCLAVE).
+	This quote is then sent to the Intel&reg; Attestation Service (IAS) for validation.
 	The IAS returns an attestation report (evidence) that is used to proof that the enclave runs a particular chaincode.
 
 	To complete the enclave creation, the attestation evidence and the enclave state including all the names, versions, cryptographic keys are encrypted using the enclave's sealing mechanism. 
@@ -408,23 +410,13 @@ The Ordering Service is treated as a trusted element in FPC networks, but securi
 
 ## TEE platform support
 
-Currently, our FPC Runtime and the SDK focuses on [Intel SGX SDK](https://github.com/intel/linux-sgx).
-However, components such as the FPC Registry are already designed to support attestations by other TEE platforms as they mature and gain remote attestation capabilities. Also, other components such as the Go part of the FPC Shim don't have an Intel SGX depency and can easily be reused. We plan to explore other TEE platforms such as AMD SEV in the future.
+Currently, our FPC Runtime and the SDK focuses on [Intel&reg; SGX SDK](https://github.com/intel/linux-sgx).
+However, components such as the FPC Registry are already designed to support attestations by other TEE platforms as they mature and gain remote attestation capabilities. Also, other components such as the Go part of the FPC Shim don't have an Intel&reg; SGX depency and can easily be reused. We plan to explore other TEE platforms such as AMD SEV in the future.
 
 ## Fabric Touchpoints
 
-- TODO with FPC lite no Fabric Touchpoints anymore; however, this only works for the chaincode-as-a-service model; 
-
-- explain that we can also support FPC using externalBuilder but this requires FPC peer image aware of SGX;
-
-- Additional Metadata in the Channel and Chaincode Definitions: In order to insure agreement on security-critical data across all Orgs on a Channel, we recommend that FPC introduce new metadata into the Channel Definition: for example, the TEE vendor’s Certificates, and into the Chaincode Definition (possibly using the “version” field): for example, the MRENCLAVE chaincode enclave identifier. In the initial implementation these are Intel SGX-specific and hardcoded, recording these metadata in the FPC Registry, but this makes runtime upgrades impossible. We hope to explore the possible use of Configtxgen and approveForMyOrg in future releases to address this issue.
-
-- New Runtime Environment: In order to create a TEE-enabled runtime for FPC chaincode, the initial FPC implementation uses a Go wrapper around a C++ Shim to enable interaction between the Peer and the Enclave, which didn’t support Go code when the project started. We also use a Peer CLI wrapper to hide Enclave-specific operations. This wrapper approach might not be ideal for compatibility with Fabric build and lifecycle management. As described above, we want to use the new External Builder feature of Fabric 2.0 to address these issues, and hope to work out the details through the RFC process.
-
-- Attestation-Based Endorsements: In order to integrate cryptographic Attestation of the TEE with Fabric endorsements, we created custom endorsement and validation plugins and include the enclave signature as part of the response payload. This added payload and the need for every Peer to run a custom validation plugin seem undesirable in the long term. Our current plan is to create a custom Membership Service Provider to replace the original mechanism. The new TEE MSP type would treat TEEs as members of an Org, replacing the Peer’s endorsing signature with a TEE Signature. We believe this approach would be more elegant and flexible, and would lay the ground for easier enablement of new TEE types.
-
-
-The FPC team welcomes the community’s advice on how each of these touch-points to Fabric should be handled going forward, and hope to solidify our plans for each element through the RFC process.
+FPC-Lite does ***not*** require any changes to Fabric.
+We recommend reading the chaincode development and deployment sections to know more about the private chaincode coding language and the use of Fabric's external builder and launcher capabilities.
 
 ## Design Documents
 
@@ -449,7 +441,7 @@ Note: The source of the UML Sequence Diagrams are also available on the [FPC Git
 - TODO add full FPC
 
 - WebAssembly Chaincode: A primary goal for FPC moving forward is to support WebAssembly chaincode, and by extension all languages that compile to WASM.
-There has already been extensive development of a high-performance open source WASM Interpreter / Compiler for Intel SGX Enclaves in the [Private Data Objects](https://github.com/hyperledger-labs/private-data-objects) project, and our current plan is to adopt that capability in the next major phase of FPC.
+There has already been extensive development of a high-performance open source WASM Interpreter / Compiler for Intel&reg; SGX Enclaves in the [Private Data Objects](https://github.com/hyperledger-labs/private-data-objects) project, and our current plan is to adopt that capability in the next major phase of FPC.
 FPC's modular architecture has been designed from the beginning to enable this drop-in capability.
 
 - Other TEEs: The FPC team is also participating in early discussions in the [Confidential Computing Consortium](https://confidentialcomputing.io/), which aims to provide a standardized way of deploying WASM across multiple TEE technologies.
@@ -487,7 +479,7 @@ This isn't a reason *not* to do this, but a statement that security risks will s
 
 Considering that the key goal of FPC is to provide a way to execute smart contracts privately with assured integrity, there are some possible alternate approaches:
 
-- Choose AMD SEV or some other TEE as the initial hardware platform. IBM already has Intel SGX TEE-enabled machines on their Cloud, and the effort can leverage considerable work already done under the Private Data Objects project. Perhaps more importantly, the FPC architecture requires cryptographic remote attestation, and this feature is not yet supported in other TEEs. We have designed its modular architecture to be extended to support AMD SEV and other TEEs as they mature and gain remote attestation features.
+- Choose AMD SEV or some other TEE as the initial hardware platform. IBM already has Intel&reg; SGX TEE-enabled machines on their Cloud, and the effort can leverage considerable work already done under the Private Data Objects project. Perhaps more importantly, the FPC architecture requires cryptographic remote attestation, and this feature is not yet supported in other TEEs. We have designed its modular architecture to be extended to support AMD SEV and other TEEs as they mature and gain remote attestation features.
 - Use Secure Multi Party Computation, Fully Homomorphic Encryption, or other pure software-based cryptographic solution. This is also a viable solution though limited to very small chaincodes because of the extremely high computational overhead. Also, compilers for these environments are generally not yet considered mature enough for general use, and there is a high learning curve imposed on programmers that use these technologies.
 - Run the entire Peer inside a TEE. This is seen as philosophically undesirable because of the importance of minimizing the Trusted Code Base. The less complex the core security elements of the system are, the better.
 - Run only the chaincode itself in the TEE - leave off the extra complexity of the Ledger Enclave. This would simplify the design too much, because the Ledger Enclave is necessary to make certain a compromised Peer can't subvert a chaincode by misrepresenting the current World State. Methods such as a rollback attack could fool a chaincode into revealing sensitive data under certain circumstances without this element.
@@ -505,19 +497,19 @@ From a Hyperledger Perspective, FPC is closely related to Private Data Objects (
 FPC is for Fabric what PDO is for Sawtooth: TEE-based smart contracts which extend the respective ledger technology with strong confidentiality in addition to the pre-existing strong integrity. Note that the PDO team is also involved in the design and development of FPC.
 Avalon on the other hand focuses on efficient off-chain confidential and (initially) state-less computation, e.g., it does not give any guarantee of rollback-resilient encrypted state or alike.
 
-Moreover, Corda (https://docs.corda.net/design/sgx-integration/design.html) proposes the use of Intel SGX to protect privacy and integrity of smart-contracts.
+Moreover, Corda (https://docs.corda.net/design/sgx-integration/design.html) proposes the use of Intel&reg; SGX to protect privacy and integrity of smart-contracts.
 
 # Development and Testing
 [testing]: #testing
 
 - TODO double check with azure CI pipeline and sgx hardware
 
-FPC relies on the presence of Trusted Execution Environment (TEE) hardware which is not available to all developers; in the initial releases the TEE is Intel SGX, which is not available on Mac, for example. Therefore, FPC provides a Docker-based development environment containing a preconfigured SGX Simulator in a Linux container.
+FPC relies on the presence of Trusted Execution Environment (TEE) hardware which is not available to all developers; in the initial releases the TEE is Intel&reg; SGX, which is not available on Mac, for example. Therefore, FPC provides a Docker-based development environment containing a preconfigured SGX Simulator in a Linux container.
 This environment can also be used in hardware mode if the underlying platform includes SGX support.
 This development environment is also used for Continuous Integration (CI) testing of the current FPC version on Github.
 
 The containerized development environment includes all dependencies needed for a new developer to start the container and immediately begin working on their first FPC Chaincode;
-this includes in particular the Intel SGX SDK and a Fabric installation for testing.
+this includes in particular the Intel&reg; SGX SDK and a Fabric installation for testing.
 It is setup in a way which still also you to easily edit files on the host using your normal development environment.
 
 The FPC team’s current practices include both unit and integration testing, using Docker to automate and Travis for CI/CD. With the Auction Demo scenario, we also include a representative example which illustrates end-to-end how to design, build and deploy a secure FPC application across the complete lifecycle.  In addition, this demo serves as an additional comprehensive integration test for our CI/CD pipeline. Once FPC becomes maintained as an official Fabric project, we will explore publishing our (existing) FPC-specific docker images in a registry.
@@ -528,6 +520,6 @@ The FPC team’s current practices include both unit and integration testing, us
 
 * Trusted Execution Environment (TEE): The isolated secure environment in which programs run in encrypted memory, unreadable even by privileged users or system processes. FPC chaincodes run in TEEs.
 
-* Enclave: The TEE technology used for the initial release of FPC will be Intel SGX.  In SGX terminology a TEE is called an _enclave_.  In this document and in general, the terms TEE and Enclave are considered interchangeable.  Intel SGX is the first TEE technology supported as, to date, it is the only TEE with mature support for remote attestation as required by the FPC integrity architecture.  However, our architecture is generic enough to also allow other implementations based on AMD SEV-SNP, ARM TrustZone, or other TEEs.
+* Enclave: The TEE technology used for the initial release of FPC will be Intel&reg; SGX.  In SGX terminology a TEE is called an _enclave_.  In this document and in general, the terms TEE and Enclave are considered interchangeable.  Intel&reg; SGX is the first TEE technology supported as, to date, it is the only TEE with mature support for remote attestation as required by the FPC integrity architecture.  However, our architecture is generic enough to also allow other implementations based on AMD SEV-SNP, ARM TrustZone, or other TEEs.
 
-Note on Terminology: The current feature naming scheme includes several elements that originated in Intel SGX and therefore use the formerly proprietary term Enclave rather than TEE. Earlier versions of this RFC stated an aim to replace the term Enclave with TEE, but since then the two terms have come to be accepted as interchangeable. We therefore decided not to try to expunge the term, but to use it as the industry has begun to do, to refer to various TEEs. The project team currently participates in the new Confidential Computing Consortium which aims to promote standards for deployment of workloads across TEEs/Enclaves, and we intend to align with their terminology as it evolves.
+Note on Terminology: The current feature naming scheme includes several elements that originated in Intel&reg; SGX and therefore use the formerly proprietary term Enclave rather than TEE. Earlier versions of this RFC stated an aim to replace the term Enclave with TEE, but since then the two terms have come to be accepted as interchangeable. We therefore decided not to try to expunge the term, but to use it as the industry has begun to do, to refer to various TEEs. The project team currently participates in the new Confidential Computing Consortium which aims to promote standards for deployment of workloads across TEEs/Enclaves, and we intend to align with their terminology as it evolves.
