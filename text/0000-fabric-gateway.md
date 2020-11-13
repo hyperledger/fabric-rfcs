@@ -25,12 +25,13 @@ By providing a single entry point to a Fabric network, client applications can i
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-The Fabric Gateway is an embodiment of the high-level 'gateway' Fabric programming model in a server component that will form part of a Fabric network alongside Peers, Orderers and CAs.  It will either be stood up inside its own process in a docker container, or it will be hosted inside a peer.  Either way, it exposes its functionality to clients via a gRPC interface.
+The Fabric Gateway is an embodiment of the high-level 'gateway' Fabric programming model in a server component that will form part of a Fabric network alongside Peers, Orderers and CAs.  It will either be stood up inside its own process (optionally in a docker container), or it will be hosted inside a peer.  Either way, it exposes its functionality to clients via a gRPC interface.  The Gateway server component will be implemented in Go.
 
-Lightweight client SDKs are used to connect to the Gateway for the purpose of invoking transactions.  The gateway will intereact with the rest of the network on behalf of the client eliminating the need for the client application to connect directly to peers and orderers.
+Lightweight client SDKs are used to connect to the Gateway for the purpose of invoking transactions.  The gateway will interact with the rest of the network on behalf of the client eliminating the need for the client application to connect directly to peers and orderers.
 
 The concepts and APIs will be familiar to Fabric programmers who are already using the new programming model.
 
+The scope of functionality exposed to the client by this component will include transaction evaluate/submit and event listening.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -47,9 +48,13 @@ service Gateway {
 }
 ```
 
+This exact detail of this protobuf definition may evolve slightly depending on implementation experience, but this shows the general design.
+
 The client credentials (private key) are never passed to the Gateway.  Client applications are responsible for managing their user keys (optionally using SDK Wallets) and signing the protobuf payloads.
 
-Submitting a transaction is a two step process (performed by the client SDK):
+The SDKs will use these services to implement the `SubmitTransaction` and `EvaluateTransaction` functions as follows:
+
+__Submitting a transaction__ is a two step process (performed by the client SDK):
 - __Endorse__
   - The client creates a ProposedTransaction message, which contains a SignedProposal message as defined in `fabric-protos/peer/proposal.proto` and signed with the user's identity.  The ProposedTransaction message also contains other optional properties, such as the endorsing orgs if the client wants to specify that.
   - The `Endorse` service is invoked on the Gateway, passing the ProposedTransaction message
@@ -60,26 +65,26 @@ Submitting a transaction is a two step process (performed by the client SDK):
     - The Gateway will register transaction event listeners for the given channel/txId.
     - It will then broadcast the `Envelope` to the ordering service.
     - The success/error response is passed back to the client in the stream
-    - The Gateway awaits suffient tx commit events before returning and closing the stream, indicating to the client that transaction has been committed.
+    - The Gateway awaits sufficient tx commit events before returning and closing the stream, indicating to the client that transaction has been committed.
 
-Evaluating a transaction is a simple process of invoking the `Evaluate` service passing a SignedProposal message.  The Gateway passes the request to a peer of it's choosing according to a defined policy (probably same org, highest block count) and returns the chaincode function return value to the client.
+__Evaluating a transaction__ is a simple process of invoking the `Evaluate` service passing a SignedProposal message.  The Gateway passes the request to a peer of it's choosing according to a defined policy (probably same org, highest block count) and returns the chaincode function return value to the client.
 
 ## Launching the Gateway
 
 #### Standalone process
-When running standalone, the Gateway is effectively a 'client' application to a set of peers.  It will be configured to connect to a peer in the organization in order to invoke discovery.  To do this it will need a signing identity in the channel writers policy.
+When running standalone, the Gateway is effectively a 'client' application to a set of peers.  A gateway instance is associated with an organization and will be configured to connect to a peer in the same organization in order to invoke discovery.  To do this it will need a signing identity in the channel writers policy.
 
-To run the gateway server, the following parameters need to be supplied:
+To run the gateway server, the following parameters must to be supplied:
 - The url of at least one peer in the org.  Once connected, the discovery service will be invoked to find other peers.
 - The MSPID associated with the gateway.
-- The signing identity of the gateway (cert and key), e.g. location of PEM files on disk.
-- The TLS certificate so that the gateway can connect to other components in the organization
-The following is an example command line invocation using a prototype:
-- `gateway -h peer0.org1.example.com -p 7051 -m Org1MSP -id ../../fabric-samples/fabcar/javascript/wallet/gateway.id -tlscert ../../fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem`
+- The signing identity of the gateway (cert and key), e.g. location of PEM files on disk.  
+- The CA certificate so that the gateway can make TLS connections to other components (peers/orderers) in the organization
+
+Note that the signing identity is required so the gateway server can make discovery requests and to register event listeners.  It is not used for submitting any transactions on behalf of end users.
 
 #### Embedded in Peer
 When embedded in a peer, the gateway will register its gRPC service with the host peer's gRPC server.
-The gateway does not need its own (client) identity since it can get all the discovery information directly from the host peer rather than via a gRPC signed request.
+The gateway does not need its own (client) identity since it can get all the discovery and event information directly from the host peer rather than via a gRPC signed request.
 
 ### Discovery
 
@@ -124,7 +129,23 @@ Implementation options:
 
 Currently a client application is responsible for load balancing its requests between multiple peers.  The Gateway will handle this on behalf of the set of currently connected client applications.
 
-Ideally, the Gateway itself will be stateless (i.e. not maintain client session state) allowing clients to be routed though an appriopriate load balancer.
+Ideally, the Gateway itself will be stateless (i.e. not maintain client session state) allowing clients to be routed though an appropriate load balancer.
+
+## Trust assumptions
+
+The Gateway is acting as a proxy between the client application and the peers/orderers.  The signed transaction proposal is created in the client using one of the SDKs, and gateway passes that directly to the endorsing peers without any modification.  If the client wishes, it can inspect the contents of the 'PreparedTransaction' message returned by the Endorse function prior to signing and submitting.   The Gateway will partially unpack the proposal responses in order to add the chaincode function return value and the transaction id to the PreparedTransaction message.  This allows the clients to access these commonly used values without the overhead of unpacking the deeply nested transaction 'Envelope' payload.
+
+Trusting clients can call the SDK's submitTransaction function to endorse/sign/submit in a single line of code for convenience. Users of the existing high level programming model are already comfortable with this procedure. 
+
+## Authentication and Authorization
+
+The Gateway itself will not add any message level authentication mechanism other than that already provided by the peers.  As a proxy, authentication and authorization is handled by peer/orderer nodes exactly as if the client was connecting to them directly.
+
+Connection of the client applications to the Gateway can be secured by mutual TLS if required.
+
+The standalone Gateway does need to have an identity that allows it to connect to peers as a client in its own right to:
+- Do network discovery to obtain network topology and endorsement plans.
+- Listen to events to allow it to check for commit disposition of submitted transactions that it has routed to the ordering service on behalf of a client.
 
 ## Gateway SDKs
 
@@ -135,7 +156,6 @@ The following classes/structures will be available as part of the gateway progra
 - Network
 - Contract
 - Transaction
-- Wallet
 
 The existing `submitTransaction()` and `evaluateTransaction()` API methods will be implemented using the Gateway gRPC services described above.
 
@@ -148,7 +168,7 @@ SDKs will be created for the following languages:
 - Go
 - Java
 
-It is proposed that these SDKs will be maintained in the same GitHub respository as the gateway itself (`hyperledger/fabric-gateway`) to ensure that they all stay up to date with each other and with the core gateway.  This will be enforced in the CI pipeline by running the end-to-end scenario tests across all SDKs.
+It is proposed that these SDKs will be maintained in the same GitHub repository as the gateway itself (`hyperledger/fabric-gateway`) to ensure that they all stay up to date with each other and with the core gateway.  This will be enforced in the CI pipeline by running the end-to-end scenario tests across all SDKs.
 
 Publication of SDK releases will be as follows:
 - Node SDK published to NPM.
@@ -161,7 +181,7 @@ Contributors are invited to create SDKs for other languages, e.g. Python, Rust.
 # Drawbacks
 [drawbacks]: #drawbacks
 
-When run as a standalone process, the gateway would add another docker containter to an (arguably) already complex Fabric architecture.  Also it will require its own signing identity in the channel writers policy in order to invoke the discovery service, which might be a security concern in some environments. These concerns are mitigated by embedding the gateway server within the organisation's existing peers.  
+When run standalone, the gateway would add another process to an (arguably) already complex Fabric architecture.  Also it will require its own signing identity in the channel writers policy in order to invoke the discovery service, which might be a security concern in some environments. These concerns are mitigated by embedding the gateway server within the organisation's existing peers.  
 
 However, if embedded in an existing peer, then the gateway will not be able to be scaled independently of the peers.  Also, there are scenarios where organisations don't run their own peer(s).  In both of these cases, running a standalone gateway will be advantageous.
 
@@ -195,7 +215,7 @@ The CI pipeline will run the unit tests for the Gateway and its SDKs as well as 
 # Dependencies
 [dependencies]: #dependencies
 
-- This will depend on the peer implementation in `hyperledger/fabric-protos` and the protobuf definitions in `hyperledger/fabric-protos` repo.
+- This will depend on the peer implementation in `hyperledger/fabric` and the protobuf definitions in `hyperledger/fabric-protos` repo.
 
 # Unresolved questions
 [unresolved]: #unresolved-questions
