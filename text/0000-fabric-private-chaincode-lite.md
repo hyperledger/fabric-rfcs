@@ -240,24 +240,17 @@ In order to focus the development resources on the core components of FPC, the M
 The first realization of FPC is called *FPC Lite*.
 The framework enables a class of applications which do not require release of sensitive data conditioned on private ledger state.
 This class includes smart contracts which operate on sensitive medical data, or enforce confidential supply chain agreements.
-Arguably in fact, these can be implemented without requiring any proof that some data is committed on the ledger. 
-
-For example, Federated Learning on private sensitive information is a large and important use-case which FPC Lite enables securely on Hyperledger Fabric.
-
-Coverage of the larger class of private applications and potential performance improvement over Fabric are left for a future extension.
-The design documents referenced in [Design Documents](#design-documents) already outline the path to realize such extensions.
+[Extensions](#extensions) to FPC Lite can enable support of an even larger class of applications.
 
 
-The reason for supporting only a sub-class of applications is that FPC Lite will not provide rollback protection,
-a feature which would require too invasive changes in Fabric for an initial version.
-However, these applications still cover very interesting use-cases currently not covered by Fabric.
+### Use case: Privacy-enhanced Federated Learning on FPC Lite
+
 ***TODO: @Jeb can you please make pass on below and replace this section as appropriate with info from HBP, UMBC or alike***
-For example, a large and important use-case covered is Federated Learning on private sensitive information.
-In particular in the domain of health data it could unleash a huge potential which is currently untapped.
 
-### Privacy-enhanced Federated Learning on FPC Lite
-
-To illustrate this, consider the case of training a model, e.g, Convolutional Neural Network (CNN), for detecting brain abnormalities such as precancerous lesions or aneurysms. To achieve high accuracy we need considerably more data than single entities (e.g., a hospital) usually has. Yet regulations like HIPAA make sharing brain CT scans or MRI studies, labeled by radiologists, hard if not impossible. Furthermore, to allow widest use of a derived model, it should be freely shareable without any privacy concerns. Lastly, to provide the necessary accountability and audit trail, such a federated application is ideally tied to a ledger. While there are cryptographic solutions to perform federated learning in a strongly private manner, e.g., based on differential privacy, for such a setting, they are very expensive in terms of computation and, in particular, communication complexity.
+For example, Federated Learning on private sensitive information is a real-world use-case which FPC Lite enables securely on Hyperledger Fabric.
+To illustrate this, consider the case of training a model, e.g, Convolutional Neural Network (CNN), for detecting brain abnormalities such as precancerous lesions or aneurysms.
+To achieve high accuracy we need considerably more data than single entities (e.g., a hospital) usually has.
+Yet regulations like HIPAA make sharing brain CT scans or MRI studies, labeled by radiologists, hard if not impossible. Furthermore, to allow widest use of a derived model, it should be freely shareable without any privacy concerns. Lastly, to provide the necessary accountability and audit trail, such a federated application is ideally tied to a ledger. While there are cryptographic solutions to perform federated learning in a strongly private manner, e.g., based on differential privacy, for such a setting, they are very expensive in terms of computation and, in particular, communication complexity.
 
 A sketch on how this could be solved as follows:
 - The overall approach would be to follow the [“PATE, for Private Aggregation of Teacher Ensembles”](https://blog.acolyer.org/2017/05/09/semi-supervised-knowledge-transfer-for-deep-learning-from-private-training-data/) approach to achieve the necessary strong privacy, i.e., differentially private, guarantees on the learned model to be released to the public.
@@ -272,14 +265,14 @@ Note such an application would not release any sensitive data conditioned on pri
 
 - TODO Add the detailed picture here
 
-![Encryption](../images/fpc/high-level/FPC-Encryption.png)
+![Encryption](../images/fpc/high-level/peer-architecture.png)
 
 
 ## FPC Shim
 
+The framework follows the programming model used in the standard Fabric Go shim and offers a C++ based FPC Shim to FPC chaincode developers.
 For MVP, the FPC Shim comprises a subset of the standard Fabric Shim and is complemented in the future.
 These details are documented separately in the Shim header file itself: **[ecc_enclave/enclave/shim.h](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/ecc_enclave/enclave/shim.h)**
-As described above, FPC follows the programming model used in the standard Fabric Go shim and offers a C++ based FPC Shim to FPC chaincode developers.
 
 ## FPC Transaction Validation
 
@@ -295,7 +288,7 @@ In addition to the peer-side validation, clients must also be able to verify FPC
 This process is similar to the validation step as described above; the FPC Client SDK extension implements this functionality and make this process thereby transparent to the users. A low level FPC Client SDK API may also provide the functionality to the end user directly.
 
 
-## FPC Registry
+## Enclave Registry
 
 Also referred to as the Enclave Registry Chaincode (ERCC), this is a component which maintains a list of all Chaincode Enclaves deployed on the peers in a channel.
 The registry associates with each enclave their identity, associated public keys and an attestation linking them. Additionally, the registry manages chaincode specific keys, including a chaincode public encryption key, and facilitates corresponding key-management among authorized Chaincode Enclaves. Lastly, the registry also records information required to bootstrap the validation of attestation. All of this information is committed firmly on the ledger. This enables any Peer in the Channel (even those without SGX) to inspect the Attestation results before taking actions such as connecting to that chaincode or committing transactions produced by an FPC chaincode. Moreover, clients can query the registry to retrieve the chaincode public encryption keys of a particular FPC chaincode so they can send privately transaction proposals for endorsement.
@@ -439,7 +432,8 @@ This includes, for example, smart contracts implementing sealed auctions, or e-v
 Arguably, these applications require checking whether a condition is met (e.g., "if the auction is closed") in order to release confidential data (e.g., "then the highest bid is X").
 
 Extensions to the FPC Lite architecture can enable coverage of this larger class of private applications.
-The design documents referenced in [Design Documents](#design-documents) already outline the path to realize such extensions.
+In particular, the framework can provide chaincodes with a verifiable proof of committed ledger data by implementing a trusted ledger.
+The design documents referenced in [Design Documents](#design-documents) already outline the path to realize such architecture extension.
 
 
 ## References to Design Documents
