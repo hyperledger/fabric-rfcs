@@ -227,12 +227,6 @@ In order to focus the development resources on the core components of FPC, the M
 -->
 
 
-***TODO describe components in detail***
-- *Chaincode Enclave; split in trusted and untrusted component*
-- *Internal Transaction Flow*
-	- *Enclave Creation / Registration*
-	- *Invocations and Validation*
-- *Enclave Registry Details*
 
 
 ## FPC Lite
@@ -263,9 +257,39 @@ Note such an application would not release any sensitive data conditioned on pri
 
 ## Overview of Architecture
 
-- TODO Add the detailed picture here
-
 ![Encryption](../images/fpc/high-level/peer-architecture.png)
+
+***TODO describe components in detail***
+- *Chaincode Enclave; split in trusted and untrusted component*
+- *Internal Transaction Flow*
+	- *Enclave Creation / Registration*
+	- *Invocations and Validation*
+- *Enclave Registry Details*
+
+The FPC-Lite architecture is constituted by a set of components which are designed to work atop of an unmodified Hyperledger Fabric framework: the FPC chaincode package and the Enclave registry chaincode, which run on the Fabric Peer; the FPC client, which sits onto the Fabric client. The architecture is agnostic to other Fabric components such as the ordering, gossip or membership services.
+ 
+Within the peer, the TEE (i.e., the enclave) determines the trust boundary that separates the sensitive FPC chaincode (and shim) from the rest of system.
+In particular, the TEE enhances confidentiality and integrity for code and data inside the enclave against external threats from untrusted space.
+Also, the code inside the enclave can use secret keys and cryptographic mechanism to securely store (resp. retrieve) any data to (resp. from) the ledger in untrusted space.
+
+The FPC chaincode implements the smart contract logic (see the FPC chaincode development section).
+The FPC shim interface is similar to the Fabric shim interface.
+Most importantly, it implements the security features to protect any sensitive data (e.g., encryption/decryption of ledger data, digital signatures over responses, etc.). Notably, none of these features (or relative cryptographic keys) are exposed to the FPC chaincode.
+
+During an FPC transaction invocation, the FPC shim identifies the endpoint of the secure channel between the FPC client and the FPC chaincode.
+Hence, any transactional information transiting between the Fabric client and the peer is encrypted and integrity protected.
+
+The Enclave Registry is a regular chaincode that helps establish trust in the enclave and the secure channel.
+After an FPC chaincode definition is committed on the channel, the chaincode's hosting enclave must be registered with the Enclave Registry, in order to become operational.
+The registry verifies and store on the ledger the enclave attestation (signed by the trusted hardware manufacturer) and its public keys.
+This allows any channel member to verify the genuinity of the enclave and establish trust in its public keys.
+
+Finally, the Validation Logic verifies enclave responses and persists updates to the ledger.
+In particular, the FPC client performs a regular Fabric invocation to the Validation Logic for validating signed and encrypted enclave responses, before delivering any response to the upper layer.
+The validation logic verifies the correctness of the enclave execution through the Enclave Registry and applies any state updates.
+As the logic is bundled together with the FPC chaincode in a single Fabric chaincode package,
+these updates are eventually committed within the same namespace.
+Hence, they will be visible to the FPC chaincode in a subsequent invocation.
 
 
 ## FPC Shim
@@ -292,7 +316,6 @@ This process is similar to the validation step as described above; the FPC Clien
 
 Also referred to as the Enclave Registry Chaincode (ERCC), this is a component which maintains a list of all Chaincode Enclaves deployed on the peers in a channel.
 The registry associates with each enclave their identity, associated public keys and an attestation linking them. Additionally, the registry manages chaincode specific keys, including a chaincode public encryption key, and facilitates corresponding key-management among authorized Chaincode Enclaves. Lastly, the registry also records information required to bootstrap the validation of attestation. All of this information is committed firmly on the ledger. This enables any Peer in the Channel (even those without SGX) to inspect the Attestation results before taking actions such as connecting to that chaincode or committing transactions produced by an FPC chaincode. Moreover, clients can query the registry to retrieve the chaincode public encryption keys of a particular FPC chaincode so they can send privately transaction proposals for endorsement.
-
 
 
 ## Deployment Process (in detail)
