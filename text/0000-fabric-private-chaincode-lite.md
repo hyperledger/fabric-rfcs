@@ -107,7 +107,7 @@ Note that with the exception of the results, where also a legitimate requestor k
 
 ## FPC Development
 
-### FPC Chaincode
+### Chaincode
 <!-- this section should cover: platform (x86, sgx sdk, linux; but also via docker); cmake; shim.h -> hello world tutorial -->
 
 As mentioned earlier, FPC chaincode is executed in an enclave.
@@ -118,25 +118,24 @@ Hence, development is also easily possible with MacOS or Windows as host.
 
 To ease the development process, FPC provides a `cmake` based build system which allows the developer to focus on the chaincode without having to understand SGX build details.
 The programming interface against which a FPC chaincode has to be programmed is encapsulated in the C header file [`shim.h`](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/ecc_enclave/enclave/shim.h).
-To get a more in-depth understanding of the chaincode development, consult the detailed `HelloWorld` [Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/examples) that guides new FPC developers through the process of writing their first FPC chaincode.
+To get a more in-depth understanding of the chaincode development, consult the detailed [HelloWorld Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/examples) that guides new FPC developers through the process of writing their first FPC chaincode.
+
+***TODO: let's describe that we produce the `enclave.signed.so` and `mrenclave`, which are then used in the deployment step***
 
 Note: It is the goal for the project is to support additional languages in the future, e.g., there is an ongoing effort to add support for WebAssembly.
 
-### FPC Application
+### Application
 
-***TODO add reference to .go files in our repo (or .md if we decide to do the equivalent of `fpc-management.md` for this)***
-
-This extends the Fabric Client SDKs with extra functionality that allows users to write end-to-end secure FPC-based applications.
-In particular, the FPC Client SDK extension will provide these core functions: 1) FPC transaction proposal creation (including transparent encryption of arguments) 2) FPC transaction proposal response validation and decryption of the result.
+FPC extends the Fabric Client SDKs with extra functionality that allows users to write end-to-end secure FPC-based applications.
+In particular, the FPC Client SDK extension provides these core functions:
+First, FPC transaction proposal creation, including transparent encryption of arguments.
+Second, FPC transaction proposal response validation and decryption of the result.
 The encryption and decryption is performed by the Client SDK "under the covers" without requiring any special action by the users, i.e.,
 the users still use normal `invoke`/`query` functions to issue FPC transaction invocations.
-For the MVP, we intend to support the peer CLI only. Extended support for the NodeSDK (or Go SDK) will be future work.
+Last, the Client SDK takes care of enclave discovery, that is, the Client SDK is responsible to fetch the corresponding chaincode encryption key and to determine the endorsing peers that host the FPC chaincode enclave.
+Extended support for other Fabric Client SDK, such as the  NodeSDK, will be future work.
 
-An application can interact with the asset store chaincode using the FPC extension for the Fabric Client Go SDK.
-The extension takes care of enclave discovery and encryption of the transaction arguments and the response.
-
-Here an example:
-***app.go***:
+An application can interact with the asset store chaincode from our [HelloWorld Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/examples) using the FPC extension based on the gateway API of the Fabric Client Go SDK. Here an example ***app.go***:
 ```go
 // Get FPC Contract
 contract := fpc.GetContract(network, "hellloWorld")
@@ -147,22 +146,26 @@ if err != nil {
 }
 ```
 
-## FPC chaincode deployment
+The FPC Gateway API is documented [here](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/flow-refactoring/client_sdk/go/fpc/contract.go) in detail.
 
+## FPC Chaincode Deployment
+
+### Peer Setup 
 There are two preparation steps required before one can deploy FPC Chaincode:
 
 - The chaincode administrator has to register with the [*Intel Attestation Service (IAS)*](https://software.intel.com/content/www/us/en/develop/topics/software-guard-extensions/attestation-services.html) to obtain attestation credentials
   and configure the local platform correspondingly.
   (This is not necessary if running Intel SGX in simulation mode)
-- The peer adminstrator has to add the FPC external builder and launcher scripts have to the `externalBuilders` section in `core.yaml` and restart the peer.
+- The peer adminstrator has to add the FPC external builder and launcher scripts have to the `externalBuilders` section in `core.yaml` and restart the peer. See an example `core.yaml` [here](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/integration/config/core.yaml#L569).
 
+
+### Deployment
 The actual chaincode deployment follows mostly the standard Fabric pattern:
 
-- the deployer creates a package with the main FPC deployment artificat, the `enclave.signed.so` enclave binary, and deployment metadata.
+- The deployer creates a package with the main FPC deployment artifact, the `enclave.signed.so` enclave binary, and deployment metadata.
   FPC provides convenience scripts to facilitate this step.
-- subsequently, the deployer follows the standard Fabric 2.0 Lifecycle steps, i.e., `install`, `approveformyorg` and `commit`. 
-  A noteworthy FPC specific aspect is that the version used *must* be the code identity of the FPC chaincode,
-  i.e., a cryptographic hash corresponding to `enclave.so` called the `MRENCLAVE` for SGX.
+- Subsequently, the deployer follows the standard Fabric 2.0 Lifecycle steps, i.e., `install`, `approveformyorg` and `commit`. 
+  A noteworthy FPC specific aspect is that the version used *must* be the code identity of the FPC chaincode, i.e., a cryptographic hash corresponding to `enclave.so` called the `MRENCLAVE` for SGX. ***TODO link the mrenclave to the chaincode development section before.***
   <!-- 
     Two notes:
     - mrenclave described as simple hash is a gross over simplification but should be ok here to give some intuition without getting into the details.
@@ -173,7 +176,7 @@ The actual chaincode deployment follows mostly the standard Fabric pattern:
       (see related discussion on this on old "full FPC RFC".)
       As this moot in FPC Lite which supports only a single enclave, i omit the corresponding discussion for now.
   -->
-- lastly, once the chaincode definition for an FPC chaincode has been approved by the consortium, 
+- Lastly, once the chaincode definition for an FPC chaincode has been approved by the consortium, 
   a Chaincode Enclave is created via a new `initEnclave` lifecycle management command. 
   <!-- commented out as not really user visible
     This command triggers the creation of an enclave and registers it at the FPC Registry.  
@@ -194,28 +197,11 @@ The deployment is described in detail below and can be found in the [Full Detail
 
 ## Requirements
 
-***TODO with vanilla fabric this is reduced***
-
 - In the initial version of FPC, chaincode must be written in C/C++ using our FPC SDK. More language support is planned.
-- FPC currently is installed on a Peer, and Endorsing Peers must use the FPC chaincode runtime based on externalBuilders.
+- FPC Endorsing Peers must use the FPC chaincode runtime.
+- FPC’s runtime relies on the external builder/launcher feature of Fabric
+- FPC's attestation infrastructure requires the installation of an FPC Registry chaincode per channel.
 - FPC currently requires that the Endorsing Peers run on an Intel&reg; x86 machine with the SGX feature enabled. We plan to add support for other Trusted Execution Environments in future releases.
-- To simplify the development as much as possible and provide chaincode developers the same experience as with "traditional" chaincode development, FPC requires developers to use a chaincode SDK that abstracts the TEE specific implementation details as much as possible.
-- FPC’s runtime relies on the external builder/launcher feature of Fabric, and the attestation infrastructure requires the installation of an FPC Registry chaincode in the channel.
-
-
-## Fabric Features Not (Yet) Supported
-
-***TODO: revisit for FPC Lite (and its constraints). Might be best moved to after architecture?***
-
-In order to focus the development resources on the core components of FPC, the MVP excludes certain Fabric features, which will be added in the future.
-
-- Multiple Implementations for a Single Chaincode -- a feature added in Fabric 2.0 -- is fundamentally incompatible for private chaincode like FPC where _all_ information flows have to be controlled: for FPC chaincodes to be considered equivalent they must be bit-for-bit identical in order to generate matching identities (i.e. MRENCLAVE).
-- Arbitrary endorsement policies
-- State-based endorsement
-- Chaincode-to-chaincode invocations (cc2cc)
-- Private Collections
-- Complex (CouchDB) queries like range queries and the like
-
 
 
 # Architecture
@@ -238,6 +224,8 @@ This class includes smart contracts which operate on sensitive medical data, or 
 
 
 ### Use case: Privacy-enhanced Federated Learning on FPC Lite
+
+***TODO I dont see this section here under architecture; better as subsection of motivation***
 
 ***TODO: @Jeb can you please make pass on below and replace this section as appropriate with info from HBP, UMBC or alike***
 
@@ -505,6 +493,18 @@ to call other chaincodes from a FPC chaincode; as this is a useful feature often
   This means that on restart of the peer, the complete transaction-log has to be re-read and also limits how large the ledger meta state can be.
   In a future release, we will add secure storage of the meta-data state which will address both of these concerns and will provide better restart performance and better scalability.
 
+## Fabric Features Not (Yet) Supported
+
+***TODO: revisit for FPC Lite (and its constraints). Might be best moved to after architecture?***
+
+In order to focus the development resources on the core components of FPC, the MVP excludes certain Fabric features, which will be added in the future.
+
+- Multiple Implementations for a Single Chaincode -- a feature added in Fabric 2.0 -- is fundamentally incompatible for private chaincode like FPC where _all_ information flows have to be controlled: for FPC chaincodes to be considered equivalent they must be bit-for-bit identical in order to generate matching identities (i.e. MRENCLAVE).
+- Arbitrary endorsement policies
+- State-based endorsement
+- Chaincode-to-chaincode invocations (cc2cc)
+- Private Collections
+- Complex (CouchDB) queries like range queries and the like
 
 
 # Drawbacks
@@ -555,7 +555,7 @@ It is setup in a way which still also you to easily edit files on the host using
 
 The FPC team’s current practices include both unit and integration testing, using Docker to automate and Travis for CI/CD. With the Auction Demo scenario, we also include a representative example which illustrates end-to-end how to design, build and deploy a secure FPC application across the complete lifecycle.  In addition, this demo serves as an additional comprehensive integration test for our CI/CD pipeline. Once FPC becomes maintained as an official Fabric project, we will explore publishing our (existing) FPC-specific docker images in a registry.
 
-# Terminology:
+# Terminology
 
 * Attestation: An important cryptographic feature of Trusted Execution Environments by which the hardware can reliably state exactly what software it is running. This statement is signed by the hardware so that anyone reading it can verify that the statement came from an actual valid and up-to-date TEE. The Attestation can cover both the software portion of the TEE itself as well as any program to be run in it. This attestation takes the form of a "quote" containing (among other things) a measurement of the code and data in the TEE and its software version number, which is signed by the TEE and can be verified by anyone using well known Public Key Infrastructure technology.
 
