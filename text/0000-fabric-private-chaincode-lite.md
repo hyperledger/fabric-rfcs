@@ -293,6 +293,8 @@ These details are documented separately in the Shim header file itself: **[ecc_e
 
 ## FPC Transaction Validation
 
+***TODO: this section is FPC, not FPC Lite. That said, we cover validation already later in Transaction flow, so maybe just drop this section?***
+
 FPC transactions are validated using the FPC Validator that is implemented as a custom validation plugin and is attached to the standard Fabric validation pipeline.
 When the peer receives a transaction produced by an FPC chaincode, FPC Validator fetches the corresponding validation data from the FPC Registry - specifically, the attestation for the Chaincode Enclave(s) that executed that transaction. It verifies that the attestation is correct by verifying a signature produced by the TEE vendor, and checks that the attestation contains the chaincode hash (MRENCLAVE) that is referenced in the chaincode definition. If this check succeeds, the public key attached to the attestation is used to verify the FPC endorsement signature.
 In other words, using the FPC Validator, a peer checks that a transaction (i.e., the read/writeset and the result) was indeed produced by a proper FPC Chaincode.
@@ -313,7 +315,7 @@ The registry associates with each enclave their identity, associated public keys
 
 ## Deployment Process (in detail)
 
-***TODO what is the difference to the deployment in the previous section?***
+***TODO what is the difference to the deployment in the previous section? -> Maybe best only focus on what is new which is really only `initEnclave` admin commands and the `initEnclave` and `registerEnclave` flows, i.e., just drop Step 1-3 and just keep Step 4?***
 
 This section details the turn-up process for all elements of FPC, including an explanation of the trust architecture.
 
@@ -528,6 +530,8 @@ to call other chaincodes from a FPC chaincode; as this is a useful feature often
 
 # Drawbacks
 [drawbacks]: #drawbacks
+
+***TODO: do we need this section? i would drop it ...***
 
 Why should we *not* do this? Are there any risks that must be considered along with this rfc.
 
