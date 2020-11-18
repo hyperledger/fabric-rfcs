@@ -48,7 +48,7 @@ Such data includes secret cryptographic keys, which the chaincode uses to secure
     and also still mention all possible use-cases. 
     The distinction is done later in the architecture/design section
 -->
-## Enable new use-cases with strong privacy requrements
+## Enable new use-cases with strong privacy requirements
 FPC is motivated by the many use cases in which it is desirable to embody an application in a Blockchain architecture, but where in addition to the *existing integrity assurances*, the application *also requires privacy*. This may include private voting, sealed bid auctions, operations on sensitive data such as regulated medical or genomic data, and supply chain operations requiring contract secrecy. With Fabric's current privacy mechanisms, these use cases are not possible as they still require the endorsement nodes to be fully trusted.
 For example, the concept of channels and Private Data allows to restrict chaincode data sharing only within a group of authorized participants, still when the chaincode processes the data it is exposed to the endorsing peer in clear. In the example of a voting system, where a government may run an endorsing peer it is clear that this is not ideal.
 
