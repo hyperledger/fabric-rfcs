@@ -35,7 +35,7 @@ FPC is available open-source on Github (https://github.com/hyperledger-labs/fabr
 FPC operates by allowing a chaincode to process transaction arguments and state without exposing the contents to anybody, including the endorsing peers.
 Also, the framework provides interested parties (clients and peers) with the capability to establish trust in an FPC chaincode.
 This is achieved by means of a hardware-based remote attestation, which parties use to verify that a genuine TEE protects the intended chaincode and its data.
-Clients can thus establish a secure channel directly with the FPC chaincode (as opposed to the peer hosting the chaincode) which preserves the confidentiality of trasaction arguments and responses.
+Clients can thus establish a secure channel directly with the FPC chaincode (as opposed to the peer hosting the chaincode) which preserves the confidentiality of transaction arguments and responses.
 On the hosting peer, the TEE preserves the confidentiality of the data while the chaincode processes it.
 Such data includes secret cryptographic keys, which the chaincode uses to secure any data that it stores on the public ledger.
 
@@ -53,7 +53,7 @@ FPC is motivated by the many use cases in which it is desirable to embody an app
 For example, the concept of channels and Private Data allows to restrict chaincode data sharing only within a group of authorized participants, still when the chaincode processes the data it is exposed to the endorsing peer in clear. In the example of a voting system, where a government may run an endorsing peer it is clear that this is not ideal.
 
 ## Enable performance improvements
-<!-- Below section does not apply to FPC Lite but as we haven't introduced that and this motivation can be address in a later extentions we still mention it here -->
+<!-- Below section does not apply to FPC Lite but as we haven't introduced that and this motivation can be address in a later extensions we still mention it here -->
 A second motivation for FPC is its integrity model based on hardware-enabled remote cryptographic attestation; this model can provide similarly high confidence of integrity to the standard Fabric model of integrity through redundancy, but using less computation and communication. With TEE-based endorsement and remote attestation, a new set of endorsement policies are made possible, which can reduce the number of required endorsements and still provide sufficient assurance of integrity for many workloads.
 
 FPC adds another line of defense around a chaincode. Over time and with continued development of support for other languages and Trusted Execution Environments, we intend FPC to become the standard way to execute many or even most chaincodes in Fabric, similar to what HTTPS has become for the Web.
@@ -87,12 +87,11 @@ The Shim is responsible to provide access to the ledger state as maintained by t
 Applications can interaction with a FPC chaincode using an extension of the Fabric Client Go SDK.
 This FPC extension exposes the Fabric `gateway` interface and transparently encrypts and authenticates all interactions with a FPC chaincode.
 
-Note that FPC hides all interactions with the TEE technology from the developers, i.e., they they do not have to understand the pecularities of TEEs.  This largely also applies to the adminstrators deploying FPC chaincode, although they will have to understand the general concepts of TEE to make informed decisions on security policies and to configure the attestation credentials.
+Note that FPC hides all interactions with the TEE technology from the developers, i.e., they they do not have to understand the peculiarities of TEEs.  This largely also applies to the adminstrators deploying FPC chaincode, although they will have to understand the general concepts of TEE to make informed decisions on security policies and to configure the attestation credentials.
 
 To illustrate the interaction between an application and a FPC chaincode see the following figure. In particular, this figure highlights the encrypted elements of the FPC architecture.
 
-***TODO fix this image by removing the Ledger Enclave and the FPC registry box, both of which a normal user does not see (see comment on top for .ppt source of original images)***
-![Encryption](../images/fpc/high-level/FPC-Encryption.png)
+![Encryption](../images/fpc/20201118_fpc_diagrams/Slide1.png)
 
 Encrypted elements of the FPC architecture (over and above those in Fabric, such as TLS tunnels from Client to Peer) include:
 
@@ -254,7 +253,7 @@ Note such an application would not release any sensitive data conditioned on pri
 
 The FPC-Lite architecture is constituted by a set of components which are designed to work atop of an unmodified Hyperledger Fabric framework: the FPC chaincode package and the Enclave registry chaincode, which run on the Fabric Peer; the FPC client, which sits onto the Fabric client. The architecture is agnostic to other Fabric components such as the ordering, gossip or membership services.
  
-![Encryption](../images/fpc/high-level/peer-architecture.png)
+![Architecture](../images/fpc/20201118_fpc_diagrams/Slide2.png)
 
 Within the peer, the TEE (i.e., the enclave) determines the trust boundary that separates the sensitive FPC chaincode (and shim) from the rest of system.
 In particular, the TEE enhances confidentiality and integrity for code and data inside the enclave against external threats from untrusted space.
@@ -324,6 +323,8 @@ The registry is particularly relevant for clients, for retrieving an FPC chainco
 
 This section details the turn-up process for all elements of FPC, including an explanation of the trust architecture.
 
+![Deployment](../images/fpc/20201118_fpc_diagrams/Slide3.png)
+
 * Step 1: Channel and Peers
 
 	Initially it is assumed that a standard Fabric network is in place. A new Channel is created according to the existing standard process for Fabric. One or more Peers join the channel according to the standard process.
@@ -383,6 +384,8 @@ This section details the turn-up process for all elements of FPC, including an e
 ***TODO add a single figure illustrating the flow***
 
 To illustrate how the FPC architecture works and how it ensures robust end-to-end trust, we describe the process of an FPC transaction. This assumes that all of the above described elements are already in place.
+
+![Transaction](../images/fpc/20201118_fpc_diagrams/Slide4.png)
 
 * Step 1: Client Invocation of the FPC Chaincode
 
