@@ -4,13 +4,6 @@ title: Fabric Private Chaincode - Lite
 nav_order: 3
 ---
 
-<!--
-	Notes:
-	- The PNGs are generated from https://github.com/hyperledger-labs/fabric-private-chaincode/docs/images/FPC arch and lifecycle stages v1.3.pptx
-
--->
-
-
 - Feature Name: Fabric Private Chaincode (FPC) - Lite
 - Start Date: 2020-01-28)
 - RFC PR: (leave this empty)
@@ -91,7 +84,7 @@ Note that FPC hides all interactions with the TEE technology from the developers
 
 To illustrate the interaction between an application and a FPC chaincode see the following figure. In particular, this figure highlights the encrypted elements of the FPC architecture.
 
-![Encryption](../images/fpc/20201118_fpc_diagrams/Slide1.png)
+![Encryption](../images/fpc/high-level/Slide1.png)
 
 Encrypted elements of the FPC architecture (over and above those in Fabric, such as TLS tunnels from Client to Peer) include:
 
@@ -253,7 +246,7 @@ Note such an application would not release any sensitive data conditioned on pri
 
 The FPC-Lite architecture is constituted by a set of components which are designed to work atop of an unmodified Hyperledger Fabric framework: the FPC chaincode package and the Enclave registry chaincode, which run on the Fabric Peer; the FPC client, which sits onto the Fabric client. The architecture is agnostic to other Fabric components such as the ordering, gossip or membership services.
  
-![Architecture](../images/fpc/20201118_fpc_diagrams/Slide2.png)
+![Architecture](../images/fpc/high-level/Slide2.png)
 
 Within the peer, the TEE (i.e., the enclave) determines the trust boundary that separates the sensitive FPC chaincode (and shim) from the rest of system.
 In particular, the TEE enhances confidentiality and integrity for code and data inside the enclave against external threats from untrusted space.
@@ -323,7 +316,7 @@ The registry is particularly relevant for clients, for retrieving an FPC chainco
 
 This section details the turn-up process for all elements of FPC, including an explanation of the trust architecture.
 
-![Deployment](../images/fpc/20201118_fpc_diagrams/Slide3.png)
+![Deployment](../images/fpc/high-level/Slide3.png)
 
 * Step 1: Channel and Peers
 
@@ -385,7 +378,7 @@ This section details the turn-up process for all elements of FPC, including an e
 
 To illustrate how the FPC architecture works and how it ensures robust end-to-end trust, we describe the process of an FPC transaction. This assumes that all of the above described elements are already in place.
 
-![Transaction](../images/fpc/20201118_fpc_diagrams/Slide4.png)
+![Transaction](../images/fpc/high-level/Slide4.png)
 
 * Step 1: Client Invocation of the FPC Chaincode
 
