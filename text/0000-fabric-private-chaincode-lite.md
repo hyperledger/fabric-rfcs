@@ -451,7 +451,6 @@ FPC-Lite does ***not*** require any changes to Fabric.
 We recommend reading the chaincode development and deployment sections to know more about the private chaincode coding language and the use of Fabric's external builder and launcher capabilities.
 
 ## Fabric Features Not (Yet) Supported
-***TODO***
 
 In order to focus the development resources on the core components of FPC, the MVP `FPC Lite` excludes certain Fabric features, which will be added in the future.
 
@@ -487,13 +486,8 @@ In particular, the framework can provide chaincodes with a verifiable proof of c
 The design documents referenced in [Design Documents](#design-documents) already outline the path to realize such architecture extension.
 
 ## References to Design Documents
-***TODO***
 
-***TODO: Also reference the two google design docs for FPC Lite (e.g., because of the security analysis in the TL-less doc): [FPC without Trusted Ledger](https://docs.google.com/document/d/1jbiOY6Eq7OLpM_s3nb-4X4AJXROgfRHOrNLQDLxVnsc/), [FPC externalized endorsement validation](https://docs.google.com/document/d/1RSrOfI9nh3d_DxT5CydvCg9lVNsZ9a30XcgC07in1BY)***
-
-***TODO: Also reference the [interfaces.md](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/docs/design/fabric-v2%2B/interfaces.md)?***
-
-The full detailed protocol specification of FPC is documented in a series of UML Sequence Diagrams. Specifically:
+The full detailed protocol specification of FPC is documented in a series of UML Sequence Diagrams:
 
 - The [fpc-lifecycle-v2](../images/fpc/full-detail/fpc-lifecycle-v2.png) diagram describes the lifecycle of a FPC chaincode, focusing in particular on those elements that change in FPC vs. regular Fabric.
 - The [fpc-registration](../images/fpc/full-detail/fpc-registration.png) diagram describes how an FPC Chaincode Enclave is created on a Peer and registered at the FPC Registry, including the Remote Attestation process.
@@ -502,8 +496,13 @@ The full detailed protocol specification of FPC is documented in a series of UML
 - The [fpc-cc-execution](../images/fpc/full-detail/fpc-cc-execution.png) diagram provides further detail of the execution phase of an FPC chaincode, focusing in particular on the `getState` and `putState` interactions with the Ledger and verification of state with the Ledger Enclave.
 - The [fpc-validation](../images/fpc/full-detail/fpc-validation.png) diagram describes the FPC-specific process of validation and establishing a trusted view of the ledger using the Ledger Enclave.
 - The [fpc-components](../images/fpc/full-detail/fpc-components.png) diagram shows the important data structures of FPC components and messages exchanged between components.
+- The [interfaces](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/docs/design/fabric-v2%2B/interfaces.md) document defines the interfaces exposed by the FPC components and their internal state.
 
 Note: The source of the UML Sequence Diagrams are also available on the [FPC Github repository](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/docs/design/fabric-v2%2B).
+
+Additional google documents provide details on FPC Lite:
+- The [FPC Lite for Health use case](https://docs.google.com/document/d/1jbiOY6Eq7OLpM_s3nb-4X4AJXROgfRHOrNLQDLxVnsc/) describes how FPC Lite enables a health care use case, without requiring a trusted ledger.
+- The [FPC Lite externalized endorsement validation](https://docs.google.com/document/d/1RSrOfI9nh3d_DxT5CydvCg9lVNsZ9a30XcgC07in1BY/) describes the FPC Lite enclave endorsement validation mechanism.
 
 # Repositories and Deliverables
 
