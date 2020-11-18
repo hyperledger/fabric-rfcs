@@ -452,9 +452,16 @@ We recommend reading the chaincode development and deployment sections to know m
 
 In order to focus the development resources on the core components of FPC, the MVP `FPC Lite` excludes certain Fabric features, which will be added in the future.
 
-- Multiple implementations for a single chaincode -- a feature added in Fabric v2.0. 
-***not in current arch, but if you know other versions behave similarly and do not leak... good! but cannot install and use arbitrary package***
-   -- is fundamentally incompatible for private chaincode like FPC where _all_ information flows have to be controlled: for FPC chaincodes to be considered equivalent they must be bit-for-bit identical in order to generate matching identities (i.e. MRENCLAVE).
+- Multiple implementations for a single chaincode.
+This feature is supported in Fabric v2 and gives organizations the freedom to implement and package their own chaincode.
+It allows for different chaincode implementations as long as changes to the ledger state implement the same agreed upon state machine, i.e., the application integrity is ensured.
+
+FPC chaincodes have a stronger requirement: Not only must we be assured of the application integrity but we also require that all information flows be controlled to meet our confidentiality requirements.   As the execution during endorsement is unobservable by other organizations, they will require the assurance that any chaincode getting access to the state decryption keys, and hence sensitive information, will never leak unintended information.  Therefore, the implementation of a chaincode must allow for public examination for (lack of) potential leaks of confidential data.
+Only then clients can establish trust in how the chaincode executable treats their sensitive data.
+
+For a given chaincode, the FPC Lite currently supports only a single active implementation.
+Most importantly, the version field of the chaincode definition precisely identifies the chaincode's binary executable.
+
 - Multiple key/value pairs and composite keys as well as secure access to MSP identities via `getCreator` will be supported once below [Roll-back Protection Extension](#rollback-protection-extension) is added.
 - Arbitrary endorsement policies
 - State-based endorsement
