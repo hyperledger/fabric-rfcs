@@ -18,13 +18,6 @@ nav_order: 3
 - Fabric Issue: (leave this empty)
 
 
-***TODO (Begin): Document wide***
-
-- *resolve which github links to use. Curently all point to `flow-refactoring`. What ever welink, should include at least PR #458 or successor with client go sdk & go admin godoc (and maybe #466)*
-
-***TODO (end)***
-
-
 # Summary
 [summary]: #summary
 
@@ -55,9 +48,11 @@ Such data includes secret cryptographic keys, which the chaincode uses to secure
     and also still mention all possible use-cases. 
     The distinction is done later in the architecture/design section
 -->
+## Enable new use-cases with strong privacy requirements
 FPC is motivated by the many use cases in which it is desirable to embody an application in a Blockchain architecture, but where in addition to the *existing integrity assurances*, the application *also requires privacy*. This may include private voting, sealed bid auctions, operations on sensitive data such as regulated medical or genomic data, and supply chain operations requiring contract secrecy. With Fabric's current privacy mechanisms, these use cases are not possible as they still require the endorsement nodes to be fully trusted.
 For example, the concept of channels and Private Data allows to restrict chaincode data sharing only within a group of authorized participants, still when the chaincode processes the data it is exposed to the endorsing peer in clear. In the example of a voting system, where a government may run an endorsing peer it is clear that this is not ideal.
 
+## Enable performance improvements
 <!-- Below section does not apply to FPC Lite but as we haven't introduced that and this motivation can be address in a later extentions we still mention it here -->
 A second motivation for FPC is its integrity model based on hardware-enabled remote cryptographic attestation; this model can provide similarly high confidence of integrity to the standard Fabric model of integrity through redundancy, but using less computation and communication. With TEE-based endorsement and remote attestation, a new set of endorsement policies are made possible, which can reduce the number of required endorsements and still provide sufficient assurance of integrity for many workloads.
 
@@ -121,8 +116,8 @@ The current development platform is Linux (Ubuntu). However, we also do enable s
 Hence, development is also easily possible with MacOS or Windows as host.
 
 To ease the development process, FPC provides a `cmake` based build system which allows the developer to focus on the chaincode without having to understand SGX build details.
-The programming interface against which a FPC chaincode has to be programmed is encapsulated in the C header file [`shim.h`](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/flow-refactoring/ecc_enclave/enclave/shim.h).
-To get a more in-depth understanding of the chaincode development, consult the detailed [`HelloWorld` Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/flow-refactoring/examples) that guides new FPC developers through the process of writing their first FPC chaincode.
+The programming interface against which a FPC chaincode has to be programmed is encapsulated in the C header file [`shim.h`](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/ecc_enclave/enclave/shim.h).
+To get a more in-depth understanding of the chaincode development, consult the detailed [`HelloWorld` Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/examples) that guides new FPC developers through the process of writing their first FPC chaincode.
 
 The outcome of the build process are two deployment artifacts: 
 (1) a file `enclave.signed.so`, the enclave binary containing both the chaincode as well as the (trusted part) of the FPC shim, and 
@@ -142,7 +137,7 @@ the users still use normal `invoke`/`query` functions to issue FPC transaction i
 Last, the Client SDK takes care of enclave discovery, that is, the Client SDK is responsible to fetch the corresponding chaincode encryption key and to determine the endorsing peers that host the FPC chaincode enclave.
 Extended support for other Fabric Client SDK, such as the  NodeSDK, will be future work.
 
-An application can interact with the asset store chaincode from our [`HelloWorld` Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/flow-refactoring/examples) using the FPC extension based on the gateway API of the Fabric Client Go SDK. Here an example ***app.go***:
+An application can interact with the asset store chaincode from our [`HelloWorld` Tutorial](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/examples) using the FPC extension based on the gateway API of the Fabric Client Go SDK. Here an example ***app.go***:
 ```go
 // Get FPC Contract
 contract := fpc.GetContract(network, "hellloWorld")
@@ -153,7 +148,7 @@ if err != nil {
 }
 ```
 
-The FPC Gateway API is documented [here](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/flow-refactoring/client_sdk/go/fpc/contract.go) in detail.
+The FPC Gateway API is documented [here](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/client_sdk/go/fpc/contract.go) in detail.
 
 ## FPC Chaincode Deployment
 
@@ -163,7 +158,7 @@ There are two preparation steps required before one can deploy FPC Chaincode:
 - The chaincode administrator has to register with the [*Intel Attestation Service (IAS)*](https://software.intel.com/content/www/us/en/develop/topics/software-guard-extensions/attestation-services.html) to obtain attestation credentials
   and configure the local platform correspondingly.
   (This is not necessary if running Intel SGX in simulation mode)
-- The peer adminstrator has to add the FPC external builder and launcher scripts have to the `externalBuilders` section in `core.yaml` and restart the peer. See an example `core.yaml` [here](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/flow-refactoring/integration/config/core.yaml#L569).
+- The peer adminstrator has to add the FPC external builder and launcher scripts have to the `externalBuilders` section in `core.yaml` and restart the peer. See an example `core.yaml` [here](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/integration/config/core.yaml#L569).
 
 
 ### Deployment
@@ -189,7 +184,7 @@ The actual chaincode deployment follows mostly the standard Fabric pattern:
     This command triggers the creation of an enclave and registers it at the FPC Registry.  
     The registration includes the attestation of the Chaincode Enclave.
   -->
-  For more information on additional management commands, see the [FPC Management API document](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/flow-refactoring/docs/design/fabric-v2%2B/fpc-management.md).
+  For more information on additional management commands, see the [FPC Management API document](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/docs/design/fabric-v2%2B/fpc-management.md).
 
 <!-- commented out as not really user visible
 The FPC Registry stores all attestation reports, as signed by the TEE vendor. 
@@ -291,7 +286,7 @@ Hence, they will be visible to the FPC chaincode in subsequent invocations.
 The framework offers a C++ based FPC Shim to FPC chaincode developers.
 Such shim follows the programming model of the Fabric Go shim, though using a different language.
 For MVP, the FPC Shim comprises a subset of the standard Fabric Shim and is complemented in the future.
-These details are documented separately in the Shim header file itself: **[ecc_enclave/enclave/shim.h](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/flow-refactoring/ecc_enclave/enclave/shim.h)**
+These details are documented separately in the Shim header file itself: **[ecc_enclave/enclave/shim.h](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/ecc_enclave/enclave/shim.h)**
 
 ## FPC Transaction Validation
 ***TODO***
@@ -486,7 +481,7 @@ The design documents referenced in [Design Documents](#design-documents) already
 
 ***TODO: Also reference the two google design docs for FPC Lite (e.g., because of the security analysis in the TL-less doc): [FPC without Trusted Ledger](https://docs.google.com/document/d/1jbiOY6Eq7OLpM_s3nb-4X4AJXROgfRHOrNLQDLxVnsc/), [FPC externalized endorsement validation](https://docs.google.com/document/d/1RSrOfI9nh3d_DxT5CydvCg9lVNsZ9a30XcgC07in1BY)***
 
-***TODO: Also reference the [interfaces.md](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/flow-refactoring/docs/design/fabric-v2%2B/interfaces.md)?***
+***TODO: Also reference the [interfaces.md](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/docs/design/fabric-v2%2B/interfaces.md)?***
 
 The full detailed protocol specification of FPC is documented in a series of UML Sequence Diagrams. Specifically:
 
@@ -498,7 +493,7 @@ The full detailed protocol specification of FPC is documented in a series of UML
 - The [fpc-validation](../images/fpc/full-detail/fpc-validation.png) diagram describes the FPC-specific process of validation and establishing a trusted view of the ledger using the Ledger Enclave.
 - The [fpc-components](../images/fpc/full-detail/fpc-components.png) diagram shows the important data structures of FPC components and messages exchanged between components.
 
-Note: The source of the UML Sequence Diagrams are also available on the [FPC Github repository](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/flow-refactoring/docs/design/fabric-v2%2B).
+Note: The source of the UML Sequence Diagrams are also available on the [FPC Github repository](https://github.com/hyperledger-labs/fabric-private-chaincode/tree/master/docs/design/fabric-v2%2B).
 
 # Repositories and Deliverables
 
@@ -506,13 +501,13 @@ Note: The source of the UML Sequence Diagrams are also available on the [FPC Git
 
 It is anticipated that the following github repositories will be created.
 
-- `fabric-private-data`
+- `fabric-private-chaincode`
     - The core infrastructure for FPC including the C Chaincode and Go client-side SDK, simple sample application with deployment based on `first-network` and related documentation.
 
 <!--  Potentially we might want to split into additonal repos liks below, maybe also splitting Go and C from `fabric-private-chaincode`
-- `fabric-private-data-sdk-go`
+- `fabric-private-chaincode-sdk-go`
     - Client side SDK in Go, including management API extensions
-- `fabric-private-data-chaincode-wamr`
+- `fabric-private-chaincode-wamr`
 	- FPC chaincode WASM runtime via WAMR
 -->
 
@@ -581,17 +576,19 @@ Additionally, Corda (https://docs.corda.net/design/sgx-integration/design.html) 
 # Development and Testing
 [testing]: #testing
 
-***TODO double check with azure CI pipeline and sgx hardware (Or maybe just drop for now and stick with travis until we get pushback?)***
-
 FPC relies on the presence of Trusted Execution Environment (TEE) hardware which is not available to all developers; in the initial releases the TEE is Intel&reg; SGX, which is not available on Mac, for example. Therefore, FPC provides a Docker-based development environment containing a preconfigured SGX Simulator in a Linux container.
 This environment can also be used in hardware mode if the underlying platform includes SGX support.
-This development environment is also used for Continuous Integration (CI) testing of the current FPC version on Github.
-
-The containerized development environment includes all dependencies needed for a new developer to start the container and immediately begin working on their first FPC Chaincode;
-this includes in particular the Intel&reg; SGX SDK and a Fabric installation for testing.
+Beyond SGX software, the containerized development environment includes also all other dependencies needed for a new developer to start the container and immediately begin working on their first FPC Chaincode.
 It is setup in a way which still also you to easily edit files on the host using your normal development environment.
 
-The FPC team’s current practices include both unit and integration testing, using Docker to automate and Travis for CI/CD. With the Auction Demo scenario, we also include a representative example which illustrates end-to-end how to design, build and deploy a secure FPC application across the complete lifecycle.  In addition, this demo serves as an additional comprehensive integration test for our CI/CD pipeline. Once FPC becomes maintained as an official Fabric project, we will explore publishing our (existing) FPC-specific docker images in a registry.
+The FPC team’s current practices include both unit and integration testing, using above docker environment to automate end-to-end tests. 
+CI/CD is enabled on Github via Travis.
+This includes also linter checks for both C and Go as well as checking for appropriate license headers.
+<!-- Comment out auction demo as intrinsically not FPC Lite enabled, will have to wait for Full FPC ..
+With the Auction Demo scenario, we also include a representative example which illustrates end-to-end how to design, build and deploy a secure FPC application across the complete lifecycle.  In addition, this demo serves as an additional comprehensive integration test for our CI/CD pipeline. 
+-->
+
+Once FPC becomes maintained as an official Fabric project, we will explore publishing our (existing) FPC-specific docker images in a registry.
 
 # Terminology
 
