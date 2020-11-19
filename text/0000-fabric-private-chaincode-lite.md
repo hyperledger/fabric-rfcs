@@ -291,64 +291,72 @@ The registry is particularly relevant for clients, for retrieving an FPC chainco
 
 
 ## Deployment Process
-***TODO***
 
-***TODO what is the difference to the deployment in the previous section? -> Maybe best only focus on what is new which is really only `initEnclave` admin commands and the `initEnclave` and `registerEnclave` flows, i.e., just drop Step 1-3 and just keep Step 4?***
-
-This section details the turn-up process for all elements of FPC, including an explanation of the trust architecture.
+We assume that:
+* an existing Fabric channel is up and running,
+* organizations are equipped with the FPC External Launcher,
+* the FPC chaincode admin has registered with the Intel® Attestation Service (IAS).
 
 ![Deployment](../images/fpc/high-level/Slide3.png)
 
-* Step 1: Channel and Peers
+### Deploy the Enclave Registry Chaincode in the channel
 
-	Initially it is assumed that a standard Fabric network is in place. A new Channel is created according to the existing standard process for Fabric. One or more Peers join the channel according to the standard process.
-	Using the `peer channel join` command, an FPC-enabled endorsing peer attaches a Ledger Enclave to the Channel, imprinting itself with a content-addressable Channel Identifier and a hash of the Channel's Genesis Block contents.
-	Note that FPC currently does not support cross-channel interaction; however, this can be addressed in future work.
+The organizations follow the usual procedures the install the chaincode package, approve it and commit it.
+In fact, the Enclave Registry is designed as a regular chaincode.
 
-* Step 2: Create the FPC Chaincode deployment artifact
 
-	One or more of the participants compiles an agreed-upon chaincode using the FPC compiler configuration.
-	This links in the FPC Shim, including its shim in the compiled package and creating a unique chaincode identifier called the MRENCLAVE.
-	Details of this process will vary in future versions supporting other TEEs. Participants must be careful to use the same compiler configuration and version numbers of all included software. As long as they do, the MRENCLAVE will be the same for each compiled Chaincode Package.
+It is recommended to specify a strong endorsement policy (e.g., majority), since the Enclave Registry operations are integrity-sensitive.
 
-* Step 3: Install and Approve an FPC Chaincode
 
-	Administrators in each organization that will participate in the channel install the agreed-upon chaincode package on their FPC-enabled Peers following the standard Fabric 2.0 lifecycle process.
-	They perform the installation of the chaincode tarball onto their Peers and invoke an `approveformyorg` transaction specifying MRENCLAVE (recall Step 1) as the chaincode version.
-	Thereby, the organization approves a particular FPC Chaincode by defining the corresponding chaincode identity (MRENCLAVE).
-	Once enough Approvals have been committed in order to fulfill the Lifecycle Endorsement Policy, an admin commits the Chaincode Definition by invoking `peer lifecycle chaincode commit`.
-	Note that by defining the MRENCLAVE inside the Chaincode Definition, FPC enforces that only enclaves matching the defined MRENCLAVE can produce valid transactions of the given chaincode.
+### Deploy an FPC Chaincode package
 
-* Step 4: Enclave Creation and Attestation Generation
+An FPC Chaincode package is no different than a regular Fabric package.
+Hence, the deployment follows the usual procedures.
 
-	Once the FPC chaincode installation and approval is complete, the admin invokes `peer lifecycle chaincode createenclave` at an endorsing peer.
-    Thereby, the FPC Shim creates an new Chaincode Enclave running the FPC Chaincode.
-    In particular, when creating the enclave, the FPC Shim also fetches the MRENCLAVE and Channel ID of the Ledger Enclave and passes them with the create command.
-	Now, having all necessary information, the new Enclave proceeds with the key generation protocol.
-	It creates public/private key-pairs for signing and encryption. The public signing key is also used as enclave identifier.
-	Moreover, the new Chaincode Enclave binds to the Ledger Enclave using the information as received during its creation performing local attestation.
+For the successful completion of the deployment process,
+it is necessary that all organizations use the **same** package.
+This will ensure that the organizations will use the same chaincode version (i.e., the same MRENCLAVE, FPC Chaincode hash, and thus same in-enclave executable).
+The chaincode version is stored in the approved and committed chaincode definition.
+At registration time, this value will be checked by the Enclave Registry.
 
-	Next, the Chaincode enclave participates in an attestation protocol.
-	This protocol may be different depending on the TEE technology used.
-	In the case of Intel&reg; SGX, the enclave produces a quote that allows to verify that a legitimate TEE is running a correct version of software and a particular FPC Chaincode (identified through MRENCLAVE).
-	This quote is then sent to the Intel&reg; Attestation Service (IAS) for validation.
-	The IAS returns an attestation report (evidence) that is used to proof that the enclave runs a particular chaincode.
+It is recommended to specify a strong endorsement policy (e.g., majority), since the Enclave Endorsement Validation operations are integrity-sensitive.
 
-	To complete the enclave creation, the attestation evidence and the enclave state including all the names, versions, cryptographic keys are encrypted using the enclave's sealing mechanism. 
-	The enclave returns the public keys, sealed state, and the attestation evidence to the FPC Shim (outside the enclave).
-	
-    The FPC Shim then stores the sealed state in its local storage provided by the external launcher.
-    This sealed state enables recreating the FPC Chaincode enclave and reprovisioning it with the private keys and correct state,
-    e.g., during restart of the Peer or because the external builder restarts the chaincode previously stopped due to idleness.
-    Note that the properties of the seal operation guarantee that only an enclave running the correct FPC Chaincode will be able to unseal that information.
+Following this deployment step, from a Fabric perspective, the FPC chaincode is operative.
+However, any FPC Chaincode query/invocation will return an error because the FPC chaincode enclave (and its cryptographic material) are still uninitialized. 
 
-	The Peer signs the enclave public keys for its organization, thereby taking ownership of the new Enclave for that organization. 
+### Initialize and Register the FPC Chaincode enclave.
 
-	Once the enclave is up and running, the `peer lifecycle chaincode createenclave` command invokes a register transaction for the newly created Chaincode Enclave.
-	The public parameters of the Chaincode Enclave along with the attestation evidence is sent to the FPC Registry, which validates them internally by checking consistency and signatures, and then stores the new entry.
-	The register invocation is invoked at a sufficient set of endorsing peers to satisfy the FPC Registry endorsement policy.
-	Finally, a Register transaction is submitted to the Ordering Service.
-	By committing a Register transactions, the FPC Chaincode Attestation is now visible proof of validity of the FPC Chaincode to all participants in the Channel.
+**(FPC Lite makes the simplifying assumption that, for each deployed FPC package, a single enclave is initialized and registered.)**
+
+The administrator of the peer hosting the FPC chaincode enclave is responsible for the initialization and registration of the enclave.
+The operation is performed by executing the `initEnclave` admin command.
+
+The command can be triggered through the FPC Client SDK.
+<!--
+Alternatively, the administrator can use the Fabric client to:
+query the `initEnclave` FPC chaincode function;
+pass the result as an argument in the invocation to the `registerEnclave` Enclave Registry chaincode function.
+-->
+A successful initialization and registration will result in a new entry (the enclave credentials, which include the chaincode definition, attestation and key material) in the registry namespace on the ledger.
+
+Internally, the command operates as follows.
+First, it issues an `initEnclave` query which reaches the FPC Shim.
+The shim initializes the enclave (which will process FPC chaincode invocations) with the chaincode parameters received from the peer, namely: the chaincode definition and the channel identifier.
+Then, it generate the key material: public/private key-pairs for signing and encryption, and the state encryption key.
+The public signing key is used as enclave identifier.
+The shim completes the execution by returning the `credentials` of the FPC Chaincode: all public parameters and a hardware-based remote attestation covering them.
+Importantly, the code identity (or hash of the FPC Chaincode) specified in the attestation should match the version in the chaincode definition.
+
+In the case of EPID-based Intel® SGX, attestations must be converted into a publicly-verifiable evidence by contacting IAS.
+The FPC Client SDK performs this step using the admin's IAS subscription.
+
+At this point the root CA certificate of the trusted hardware manufacturer represents the root of trust for the publicly-verifiable credentials.
+
+The command then continues with the enclave registration.
+In particular, it invokes the `registerEnclave` function of Enclave Registry chaincode, supplying the publicly-verifiable FPC chaincode credentials as argument.
+The registry verifies the enclave credentials and, in particular: the publicly-verifiable evidence; the key material; and the expected chaincode definition by locally querying the Fabric `__lifecycle` chaincode.
+The recommended FPC Registry endorsement policy is meant to protect the integrity of:
+these checks; and the credentials stored on the ledger and thus available to channel members.
 
 ## FPC Transaction Flow
 
