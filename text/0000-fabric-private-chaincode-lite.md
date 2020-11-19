@@ -357,33 +357,34 @@ This section details the turn-up process for all elements of FPC, including an e
 
 ![Transaction](../images/fpc/high-level/Slide4.png)
 
-* Client Invocation of the FPC Chaincode
+### Client Invocation of the FPC Chaincode
 
 The client application performs an FPC chaincode invocation through the FPC Client SDK.
-The SDK appends the client's public encryption key (useful to encrypt the response) to the invocation arguments,
-and it encrypts them using the FPC chaincode's public encryption key.
-If such key is not available, the SDK will query the Enclave Registry chaincode to retrieve it.
-The encryption and key retrieval are fully transparent to the applications layer.
-Then, the SDK performs a query (with the encrypted arguments) to the FPC chaincode through a regular Fabric Client.
+If not cached locally, the SDK will query first the Enclave Registry chaincode to retrieve the FPC chaincode's public encryption key.
+The SDK then generates a symmetric key, for the encryption of the response, and encrypts it and the invocation arguments with the FPC chaincode's public encryption key.
+This encrypted message is then sent as a query to the FPC chaincode on the peer hosting the Enclave.
+Information on the location of that peer is also stored in the Enclave Registry.
+This query, as well as the query to the registry, are through calls to the regular Fabric SDK.
+All these steps arefully transparent to the applications layer.
 
-The transaction proposal reaches the Endorsing Peer where a corresponding Chaincode Enclave resides.
-For simplicity, we describe the process for a single endorsing peer -- although multiple peers might be used, depending on the endorsement policy.
-The peer forwards the transaction proposal to the FPC Shim inside the enclave where the FPC Chaincode is running.
+The query is forwarded via the peer and some clue code to the FPC Shim inside the Enclave.
+Inside the Enclave, the FPC Shim decrypts the arguments of the proposal and saves the client's response encryption key.
+After that, it invokes the FPC Chaincode with the plaintext arguments.
 
-Inside the Enclave, the FPC Shim decrypts the arguments of the proposal and saves the client's public key.
-The it invokes the FPC Chaincode with the plaintext arguments.
-
-* Chaincode Execution
+### Chaincode Execution
 
 The FPC Chaincode processes the invocation according to the implemented chaincode logic.
 While executing, the chaincode can access the World State through `getState` and `putState` operations provided by the FPC Shim. From the chaincode perspective, the arguments of the former, and the output the latter, are plaintext data.
 
 The FPC Shim fetches the state data from the peer and loads it into the enclave, and similarly it stores data by forwarding it to the peer.
-Most importantly, the shim maintains the read/writeset, and handles the State Encryption Key to encrypt and protect the integrity of data during store operations, and to decrypt and check the integrity of data during fetch operations.
+Most importantly, the shim maintains the read/writeset, and uses the State Encryption Key to
+(a) authenticate and encrypt data with AES-GCM during store operations, and
+(b) to decrypt and check the integrity of data during fetch operations.
 From the peer perspective, store and fetch operations have encrypted arguments and outputs.
+Note, though, that while values are encrypted, the keys are maintained in cleartext and visible to the peer.
 
 An FPC Chaincode invocation completes its execution by returning a (plaintext) result to the FPC Shim.
-The FPC encrypts the result with the client's public key.
+The FPC encrypts the result with the client's response encryption key.
 Then, it produces a cryptographic signature over the input arguments, the read-write set, and the (encrypted) result.
 This is conceptually similar to the endorsement signature produced by the endorsing peer.
 
@@ -391,10 +392,10 @@ The FPC Shim completes its execution by returning the signature, the read/writes
 Finally, the peer packages the received data in transaction response and signs it.
 This is a regular Fabric endorsement, which is sent back to the client.
 
-* Enclave Endorsement Validation
+### Enclave Endorsement Validation
 
 The FPC Client SDK receives the proposal response (to the FPC Chaincode query) and starts the enclave endorsement validation.
-Recall that the response contains the enclave signature, the read/writeset and the result.
+Recall that the response contains the enclave signature, the read/writeset and the (encrypted) result.
 The FPC Client SDK performs chaincode invocation to the enclave endorsement validation, and provide the response as an argument.
 
 The enclave endorsement validation logic processes the response as follows.
