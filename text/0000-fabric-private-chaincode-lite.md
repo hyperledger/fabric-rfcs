@@ -219,7 +219,6 @@ The [Roll-back Protection Extension](#rollback-protection-extension) to FPC Lite
 ### Use case: Privacy-enhanced Federated Learning on FPC Lite
 
 ***TODO: @Jeb can you please make pass on below and replace this section as appropriate with info from HBP, UMBC or alike***
-
 For example, Federated Learning on private sensitive information is a real-world use-case which FPC Lite enables securely on Hyperledger Fabric.
 To illustrate this, consider the case of training a model, e.g, Convolutional Neural Network (CNN), for detecting brain abnormalities such as precancerous lesions or aneurysms.
 To achieve high accuracy we need considerably more data than single entities (e.g., a hospital) usually has.
@@ -327,11 +326,6 @@ However, any FPC Chaincode invocation will return an error because the FPC Chain
 The administrator of the peer hosting the FPC chaincode enclave is responsible for the initialization and registration of the enclave.
 The operation is performed by executing the `initEnclave` admin command (see step 2. above).
 The command can be triggered through the FPC Client SDK (see [earlier Deployment Section](#deployment)).
-<!--
-Alternatively, the administrator can use the Fabric client to:
-query the `initEnclave` FPC chaincode function;
-pass the result as an argument in the invocation to the `registerEnclave` Enclave Registry chaincode function.
--->
 
 A successful initialization and registration will result in a new entry in the enclave registry namespace on the ledger. In particular, each entry contains enclave credentials, which cryptographically bind the enclave to the chaincode as defined in the chaincode definition.
 
@@ -434,10 +428,12 @@ Then, it delivers the plaintext response to the application layer.
 In the figure above, the enclave endorsement validation is illustrated with step 11 - 13.
 
 ## TEE Platform Support
-***TODO***
 
-Currently, our FPC Runtime and the SDK focuses on [Intel&reg; SGX SDK](https://github.com/intel/linux-sgx).
-However, components such as the FPC Registry are already designed to support attestations by other TEE platforms as they mature and gain remote attestation capabilities. Also, other components such as the Go part of the FPC Shim don't have an Intel&reg; SGX depency and can easily be reused. We plan to explore other TEE platforms such as AMD SEV in the future.
+Currently, the FPC Runtime and the SDK focuses on [Intel&reg; SGX SDK](https://github.com/intel/linux-sgx).
+However, components such as the FPC Registry are already designed to support attestations by other TEE platforms as they mature and gain remote attestation capabilities.
+Also, other components such as the Go part of the FPC chaincode package don't have an Intel&reg; SGX depency.
+Hence, they can easily be reused.
+We plan to explore other TEE platforms such as AMD SEV in the future.
 
 ## Fabric Touchpoints
 
@@ -500,12 +496,11 @@ Additional google documents provide details on FPC Lite:
 
 # Repositories and Deliverables
 
-***TODO: first cut into such a section picking up on what Dave said. This is modeled after the [WASM PR](https://github.com/hyperledger/fabric-rfcs/pull/28). Look also in markdown comment here!***
+It is anticipated that the following github repo will be created:<br/>
 
-It is anticipated that the following github repositories will be created.
+**`github.com/hyperledger/fabric-private-chaincode`**
 
-- `fabric-private-chaincode`
-    - The core infrastructure for FPC including the C Chaincode and Go client-side SDK, simple sample application with deployment based on `first-network` and related documentation.
+This will include the core infrastructure for FPC including the C/C++ Chaincode and Go client-side SDK, sample application with deployment based on `first-network` and related documentation.
 
 <!--  Potentially we might want to split into additonal repos liks below, maybe also splitting Go and C from `fabric-private-chaincode`
 - `fabric-private-chaincode-sdk-go`
@@ -516,33 +511,22 @@ It is anticipated that the following github repositories will be created.
 
 # Feature Roadmap
 
-***TODO***
+- Design and implementation of the [Roll-back Protection Extension](#rollback-protection-extension)
 
-- Implement the [Roll-back Protection Extension](#rollback-protection-extension)
-
-- WebAssembly Chaincode: A primary goal for FPC moving forward is to support WebAssembly chaincode, and by extension all languages that compile to WASM.
+- Support for WebAssembly Chaincode: A primary goal for FPC moving forward is to support WebAssembly chaincode, and by extension all languages that compile to WASM.
 There has already been extensive development of a high-performance open source WASM Interpreter / Compiler for Intel&reg; SGX Enclaves in the [Private Data Objects](https://github.com/hyperledger-labs/private-data-objects) project, and our current plan is to adopt that capability in the next major phase of FPC.
 FPC's modular architecture has been designed from the beginning to enable this drop-in capability.
 
-- Other TEEs: The FPC team is also participating in early discussions in the [Confidential Computing Consortium](https://confidentialcomputing.io/), which aims to provide a standardized way of deploying WASM across multiple TEE technologies.
-We hope to leverage this work when extending FPC to support these other TEEs.
+- Support for other TEEs: The FPC team is also participating in early discussions in the [Confidential Computing Consortium](https://confidentialcomputing.io/), which aims to provide a standardized way of deploying WASM across multiple TEE technologies.
 
-- Endorsing Policies: The current version supports only a single designated FPC Endorsing Peer; it is our intention to support multiple FPC Endorsing Peers in the upcoming MVP release.
-In future releases this would enable rich Endorsement Policies as described above.
+- Support for rich endorsement policies
 
 - Risk Management and Deployment Policies: We intend to support deployment policies which allow the users to define where a FPC chaincode is allowed to be deployed.  For instance, the user could define that a certain FPC chaincode can only executed by an endorsing peer on a on-premise node of a certain organization.  This allows enhanced risk management.
 
-- Private Data Collections: We have not tested the combination of FPC with Private Collections in Fabric 2.0, but intend to support this combination of features in a future release.
+- Support for private data collections for FPC chaincodes
 
-- Chaincode2Chaincode Invocations: The initial version of FPC does not support
+- Support for chaincode-to-chaincode invocations: The initial version of FPC does not support
 to call other chaincodes from a FPC chaincode; as this is a useful feature often used by chaincode applications, we intend to support this functionality in a future release.
-
-- Multiple FPC Channels: The current version only supports a single FPC Channel; it is our intention to support arbitrary numbers of Channels of both FPC and regular Fabric in future releases.
-
-- Trusted Ledger State Snapshot:
-  Currently, the Trusted Ledger keeps the ledger meta-data state in secure memory only, i.e., it does not persist it.
-  This means that on restart of the peer, the complete transaction-log has to be re-read and also limits how large the ledger meta state can be.
-  In a future release, we will add secure storage of the meta-data state which will address both of these concerns and will provide better restart performance and better scalability.
 
 # Rationale and Alternatives
 [alternatives]: #alternatives
@@ -595,10 +579,15 @@ Once FPC becomes maintained as an official Fabric project, we will explore publi
 
 # Terminology
 
-* Attestation: An important cryptographic feature of Trusted Execution Environments by which the hardware can reliably state exactly what software it is running. This statement is signed by the hardware so that anyone reading it can verify that the statement came from an actual valid and up-to-date TEE. The Attestation can cover both the software portion of the TEE itself as well as any program to be run in it. This attestation takes the form of a "quote" containing (among other things) a measurement of the code and data in the TEE and its software version number, which is signed by the TEE and can be verified by anyone using well known Public Key Infrastructure technology.
-
 * Trusted Execution Environment (TEE): The isolated secure environment in which programs run in encrypted memory, unreadable even by privileged users or system processes. FPC chaincodes run in TEEs.
+
+* Hardware-based Attestation: An important cryptographic feature of Trusted Execution Environments by which the hardware produces a verifiable signed statement about the software that it is running.
+The signature verification allows to establish trust in the genuiness of the TEE,
+while the statement verification allows to establish trust in the executed software.
+Typical signature verifications involve a PKI where the ultimate root of trust it the hardware manufacturer.
 
 * Enclave: The TEE technology used for the initial release of FPC will be Intel&reg; SGX.  In SGX terminology a TEE is called an _enclave_.  In this document and in general, the terms TEE and Enclave are considered interchangeable.  Intel&reg; SGX is the first TEE technology supported as, to date, it is the only TEE with mature support for remote attestation as required by the FPC integrity architecture.  However, our architecture is generic enough to also allow other implementations based on AMD SEV-SNP, ARM TrustZone, or other TEEs.
 
-Note on Terminology: The current feature naming scheme includes several elements that originated in Intel&reg; SGX and therefore use the formerly proprietary term Enclave rather than TEE. Earlier versions of this RFC stated an aim to replace the term Enclave with TEE, but since then the two terms have come to be accepted as interchangeable. We therefore decided not to try to expunge the term, but to use it as the industry has begun to do, to refer to various TEEs. The project team currently participates in the new Confidential Computing Consortium which aims to promote standards for deployment of workloads across TEEs/Enclaves, and we intend to align with their terminology as it evolves.
+Note on Terminology: The current feature naming scheme includes several elements that originated in Intel&reg; SGX.
+Today, terms like "Enclave" are widely accepted and used to refer to a generic TEE, rather than a specific technology.
+The project team currently participates in the new Confidential Computing Consortium which aims to promote standards for deployment of workloads across TEEs/Enclaves, and we intend to align with their terminology as it evolves.
