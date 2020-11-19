@@ -236,14 +236,6 @@ Note such an application would not release any sensitive data conditioned on pri
 
 ## Overview of Architecture
 
-
-***TODO describe components in detail***
-- *Chaincode Enclave; split in trusted and untrusted component*
-- *Internal Transaction Flow*
-	- *Enclave Creation / Registration*
-	- *Invocations and Validation*
-- *Enclave Registry Details*
-
 The FPC-Lite architecture is constituted by a set of components which are designed to work atop of an unmodified Hyperledger Fabric framework: the FPC chaincode package and the Enclave registry chaincode, which run on the Fabric Peer; the FPC client, which sits onto the Fabric client. The architecture is agnostic to other Fabric components such as the ordering, gossip or membership services.
  
 ![Architecture](../images/fpc/high-level/Slide2.png)
@@ -262,8 +254,8 @@ Hence, at the lower level of the protocol stack, the Fabric client and the peer 
 
 The Enclave Registry is a regular chaincode that helps establish trust in the enclave and the secure channel.
 After an FPC chaincode definition is committed on the channel, the chaincode's hosting enclave must be registered with the Enclave Registry, in order to become operational.
-The registry verifies and store on the ledger the enclave attestation (signed by the trusted hardware manufacturer) and its public keys.
-This allows any channel member to verify the genuinity of the enclave and establish trust in its public keys.
+The registry verifies and stores on the ledger the enclave attestation (signed by the trusted hardware manufacturer) and its public keys.
+This allows any channel member to verify the genuinity of the enclave, including the intended FPC Chaincode, and establish trust in its public keys.
 
 Finally, the Validation Logic verifies enclave responses and persists updates to the ledger.
 In particular, the FPC client performs a regular Fabric invocation to the Validation Logic for validating signed and encrypted enclave responses, before delivering any response to the upper layer.
@@ -271,6 +263,11 @@ The validation logic verifies the correctness of the enclave execution through t
 As the logic is bundled together with the FPC chaincode in a single Fabric chaincode package,
 these updates are eventually committed within the same namespace.
 Hence, they will be visible to the FPC chaincode in subsequent invocations.
+
+**Not part of the architecture**. The Ordering Service is treated as a trusted element in FPC networks, and securing it is outside the scope of FPC.
+Likewise, FPC does not directly address problems of clients attempting to manipulate the Chaincode's output by providing bad input.
+This must always be a matter of application-specific code discipline, and rely on native Fabric features which provide resilience and integrity through redundancy and distribution.
+Ultimately, FPC is complementary to these existing features of Fabric.
 
 
 ## FPC Shim
@@ -417,20 +414,6 @@ As the transaction commits (or returns an error), the Fabric client returns the 
 Finally, the FPC client decrypts any successful encrypted response, coming directly from the FPC chaincode.
 Then, it deliveres the plaintext response to the application layer.
 
-
-## Explanation of Trust Architecture
-***TODO***
-
-As described in the FPC Deployment Process and FPC Transaction Flow above, FPC is designed to provide an assurance of confidentiality and integrity even when the chaincode executes on a thoroughly compromised Peer.
-All elements of the Peer outside the Trusted Execution Environment are considered untrusted. All sensitive data and program operations are confined to the Chaincode Enclave, which provides confidentiality. 
-The Ledger Enclave does not perform operations on sensitive information requiring confidentiality, but it is also crucial to the FPC architecture in order to assure integrity; it is also considered a trusted element.
-All communication is secured by means of standard PKI cryptographic means, and private keys for both signing and encryption are confined to the TEEs with no means provided for them to be read out.
-
-The Attestation enabled by hardware and verified by means of a privacy-preserving group signature scheme provides an assurance of Integrity: the code in the Enclave is the desired code and hasn't been tampered with. And finally, the Ledger Enclave makes it possible for FPC Chaincodes to access a trusted copy of the World State, thus foiling attempts to compromise privacy or integrity by feeding the Chaincode false information from outside the TEE. In the initial implementation, the Ledger Enclave also serves as the repository for certain security-critical metadata as described in the next section.
-
-When clients connect to an FPC chaincode, they can gain an assurance that it is the correct chaincode and has not been tampered with by looking it up by its Public Key in the FPC Registry, where they can validate the measurement of and signature on that chaincode as registered by the TEE and signed by the TEE vendor as being correct and valid.
-
-The Ordering Service is treated as a trusted element in FPC networks, but securing it is outside the scope of FPC. Likewise, FPC does not directly address problems of Clients attempting to manipulate the Chaincode's output by providing bad input; this must always be a matter of application-specific code discipline, and relying on the existing features native to Fabric which provide resilience and integrity through redundancy and distribution. Ultimately, FPC is complementary to these existing features of Fabric.
 
 ## TEE Platform Support
 ***TODO***
