@@ -367,7 +367,7 @@ Information on the location of that peer is also stored in the Enclave Registry.
 This query, as well as the query to the registry, are through calls to the regular Fabric SDK.
 All these steps are fully transparent to the applications layer.
 
-The query is forwarded via the peer and some clue code to the FPC Shim inside the Enclave.
+The query is forwarded via the peer and some glue code to the FPC Shim inside the Enclave.
 Inside the Enclave, the FPC Shim decrypts the arguments of the proposal and saves the client's response encryption key.
 After that, it invokes the FPC Chaincode with the plaintext arguments.
 
