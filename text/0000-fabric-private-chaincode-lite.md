@@ -280,23 +280,6 @@ Such shim follows the programming model of the Fabric Go shim, though using a di
 For MVP, the FPC Shim comprises a subset of the standard Fabric Shim and is complemented in the future.
 These details are documented separately in the Shim header file itself: **[ecc_enclave/enclave/shim.h](https://github.com/hyperledger-labs/fabric-private-chaincode/blob/master/ecc_enclave/enclave/shim.h)**
 
-## FPC Transaction Validation
-***TODO***
-
-***TODO: this section is FPC, not FPC Lite. That said, we cover validation already later in Transaction flow, so maybe just drop this section?***
-
-FPC transactions are validated using the FPC Validator that is implemented as a custom validation plugin and is attached to the standard Fabric validation pipeline.
-When the peer receives a transaction produced by an FPC chaincode, FPC Validator fetches the corresponding validation data from the FPC Registry - specifically, the attestation for the Chaincode Enclave(s) that executed that transaction. It verifies that the attestation is correct by verifying a signature produced by the TEE vendor, and checks that the attestation contains the chaincode hash (MRENCLAVE) that is referenced in the chaincode definition. If this check succeeds, the public key attached to the attestation is used to verify the FPC endorsement signature.
-In other words, using the FPC Validator, a peer checks that a transaction (i.e., the read/writeset and the result) was indeed produced by a proper FPC Chaincode.
-
-Once the validation and commit process completes, the transaction is appended to the local ledger of the Peer.  The Ledger Enclave implements a block listener and therefore receives all committed blocks from the Peer.
-The Ledger Enclave then establishes a trusted view of the ledger by repeating the validation algorithm inside the enclave to assure against a corrupted Peer.  In particular, even though the transaction has already been validated by the Peer (using the FPC Validator), from the enclaves perspective, the validation result is untrusted.
-Note that in order reduce this redundant validation, the Peer could delegate the validation entirely to the Ledger Enclave. 
-
-In addition to the peer-side validation, clients must also be able to verify FPC transactions.
-This process is similar to the validation step as described above; the FPC Client SDK extension implements this functionality and make this process thereby transparent to the users. A low level FPC Client SDK API may also provide the functionality to the end user directly.
-
-
 ## Enclave Registry
 
 Also referred to as the Enclave Registry Chaincode (ERCC), this is a component which maintains a list of all Chaincode Enclaves deployed on the peers in a channel.
@@ -307,6 +290,7 @@ Lastly, the registry also records information required to bootstrap the validati
 All of the above listed information is committed on the ledger.
 This enables any channel member to inspect the attestation results before taking actions such as connecting to that chaincode or committing transactions produced by an FPC chaincode.
 The registry is particularly relevant for clients, for retrieving an FPC chaincode's public keys and set up a direct secure channel.
+
 
 
 ## Deployment Process
@@ -371,51 +355,66 @@ This section details the turn-up process for all elements of FPC, including an e
 
 ## FPC Transaction Flow
 
-***TODO***
-***TODO check again***
-
-***TODO add a single figure illustrating the flow***
-
-To illustrate how the FPC architecture works and how it ensures robust end-to-end trust, we describe the process of an FPC transaction. This assumes that all of the above described elements are already in place.
-
 ![Transaction](../images/fpc/high-level/Slide4.png)
 
-* Step 1: Client Invocation of the FPC Chaincode
+* Client Invocation of the FPC Chaincode
 
-	<!-- ![Invoke](../images/fpc/high-level/FPC-Invoke.png) -->
+The client application performs an FPC chaincode invocation through the FPC Client SDK.
+The SDK appends the client's public encryption key (useful to encrypt the response) to the invocation arguments,
+and it encrypts them using the FPC chaincode's public encryption key.
+If such key is not available, the SDK will query the Enclave Registry chaincode to retrieve it.
+The encryption and key retrieval are fully transparent to the applications layer.
+Then, the SDK performs a query (with the encrypted arguments) to the FPC chaincode through a regular Fabric Client.
 
-	The Client prepares the Invocation of an FPC Chaincode by first encrypting the arguments of the Chaincode Invocation using the public key specific to a particular Chaincode. This encryption happens completely transparently using our FPC Client SDK extension. This Transaction Proposal is then sent to the Endorsing Peer where a corresponding Chaincode Enclave resides. Depending on the Endorsement Policy the client may perform this step with one or more Endorsing Peers and their respective Chaincode Enclaves. (For simplicity we will continue describing the process for a single Endorsing Peer.) The Peer forwards the Transaction Proposal to its FPC Chaincode running inside the Chaincode Enclave. Inside the Enclave, the FPC Shim decrypts the Proposal and invokes the FPC Chaincode.
+The transaction proposal reaches the Endorsing Peer where a corresponding Chaincode Enclave resides.
+For simplicity, we describe the process for a single endorsing peer -- although multiple peers might be used, depending on the endorsement policy.
+The peer forwards the transaction proposal to the FPC Shim inside the enclave where the FPC Chaincode is running.
 
-* Step 2: Chaincode Execution
+Inside the Enclave, the FPC Shim decrypts the arguments of the proposal and saves the client's public key.
+The it invokes the FPC Chaincode with the plaintext arguments.
 
-	<!-- ![Execute](../images/fpc/high-level/FPC-Execute.png) -->
+* Chaincode Execution
 
-	Having received and decrypted the Transaction Proposal, the FPC Chaincode processes the invocation according to the implemented chaincode logic.
-While executing, the chaincode can access the World State through `getState` and `putState` operations provided by the FPC Shim.
-The FPC Shim fetches the state data from the peer and loads it into the Chaincode Enclave; then the FPC Shim verifies that the received data is correct (e.g. is actual committed data) with the help of the Ledger Enclave. This protects the Chaincode from various attacks that might be possible in the case of a compromised Peer. (An example and explanation is included below.) We refer to our paper (see prior art section) for more details on this type of attack.
+The FPC Chaincode processes the invocation according to the implemented chaincode logic.
+While executing, the chaincode can access the World State through `getState` and `putState` operations provided by the FPC Shim. From the chaincode perspective, the arguments of the former, and the output the latter, are plaintext data.
 
-	When the particular chaincode function invocation finishes, the FPC Shim produces a cryptographic signature over the input arguments, the read-write set, and the result.
-	This is conceptually similar to the endorsement signature produced by the endorsing peer but instead of being rooted in an organizational entity like the peer it is based on the hardware and code entity and rooted in the attestation. Note that for this reason the FPC Shim keeps track of the read/writeset during the invocation inside the Chaincode Enclave. Then the FPC Shim returns the result along with the signature back to the Peer. The Peer then uses the FPC signature as endorsement signature for the proposal response and sends it back to the Client.
+The FPC Shim fetches the state data from the peer and loads it into the enclave, and similarly it stores data by forwarding it to the peer.
+Most importantly, the shim maintains the read/writeset, and handles the State Encryption Key to encrypt and protect the integrity of data during store operations, and to decrypt and check the integrity of data during fetch operations.
+From the peer perspective, store and fetch operations have encrypted arguments and outputs.
 
-* Step 3: Enclave Endorsement Validation
+An FPC Chaincode invocation completes its execution by returning a (plaintext) result to the FPC Shim.
+The FPC encrypts the result with the client's public key.
+Then, it produces a cryptographic signature over the input arguments, the read-write set, and the (encrypted) result.
+This is conceptually similar to the endorsement signature produced by the endorsing peer.
 
-	<!-- ![Endorsement](../images/fpc/high-level/FPC-Endorsement.png) -->
+The FPC Shim completes its execution by returning the signature, the read/writeset and the result to the peer.
+Finally, the peer packages the received data in transaction response and signs it.
+This is a regular Fabric endorsement, which is sent back to the client.
 
-	The Client receives the Proposal Response (and collects enough Proposal Responses from other endorsing peers to satisfy the chaincode’s Endorsement Policy). Moreover, the FPC Client SDK extension verifies that the proposal response signature has been produced by a "valid" Chaincode Enclave. If this verification step fails, there is no need for the client to proceed and the transaction invocation is aborted. Otherwise, the client continues and builds a transaction and submits it for ordering.
+* Enclave Endorsement Validation
 
-* Step 4: Ordering
+The FPC Client SDK receives the proposal response (to the FPC Chaincode query) and starts the enclave endorsement validation.
+Recall that the response contains the enclave signature, the read/writeset and the result.
+The FPC Client SDK performs chaincode invocation to the enclave endorsement validation, and provide the response as an argument.
 
-	<!-- ![Ordering](../images/fpc/high-level/FPC-Ordering.png) -->
+The enclave endorsement validation logic processes the response as follows.
+It makes a chaincode-to-chaincode query to the Enclave Registry to get the chaincode definition and the enclave verifying key related to the FPC chaincode.
+Then it checks that the FPC chaincode definition matches the one stored in the registry, and that the key verifies the enclave signature.
 
-	With FPC we follow the normal Ordering service. While the Orderer is unmodified in FPC, the ordered transactions broadcast to the Peers in the Channel for validation now include attested endorsements. Note that we encourage the use of a BFT-based ordering service as FPC requires the Ordering service to be trusted.
+If checks pass, the logic re-applies the read/writeset through regular `getState` and `putState`.
+Note that the enclave endorsement validation and the FPC chaincode belong to the same chaincode package and, therefore, they share the namespace.
+The logic completes its execution by returning a `success` (or `error`) result to the peer.
+In turn, the peer endorses the result and returns it is to the client.
 
-* Step 5: Validation and Commitment
+At this point, we emphasize the importance of the endorsement policy related to the enclave endorsement validation.
+As the validation is integrity-sensitive and designed as a regular chaincode, it is recommended the use of a strong policy (e.g., majority).
 
-	<!-- ![Validate](../images/fpc/high-level/FPC-Validate.png) -->
+The Fabric client will therefore wait for enough peer endorsements (related to the execution of the enclave endorsement validation).
+Then, it will package the responses in a transaction, which is sent to the orderers.
+As the transaction commits (or returns an error), the Fabric client returns the outcome to the FPC client.
 
-	As the Peers in the Channel receive the block of transactions, they perform the standard Fabric validation process.
-	If these validation processes succeed, the FPC transaction is marked valid.
-	The Peer continues with committing the transactions to the local ledger and applies all valid transactions (i.e. the write set) to the World State. This completes the transaction.
+Finally, the FPC client decrypts any successful encrypted response, coming directly from the FPC chaincode.
+Then, it deliveres the plaintext response to the application layer.
 
 
 ## Explanation of Trust Architecture
