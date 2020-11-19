@@ -331,7 +331,7 @@ However, any FPC Chaincode query/invocation will return an error because the FPC
 The administrator of the peer hosting the FPC chaincode enclave is responsible for the initialization and registration of the enclave.
 The operation is performed by executing the `initEnclave` admin command.
 
-The command can be triggered through the FPC Client SDK (see [earlier Deployment Section](#deployment)
+The command can be triggered through the FPC Client SDK (see [earlier Deployment Section](#deployment)).
 <!--
 Alternatively, the administrator can use the Fabric client to:
 query the `initEnclave` FPC chaincode function;
