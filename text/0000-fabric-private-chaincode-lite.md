@@ -365,7 +365,7 @@ The SDK then generates a symmetric key, for the encryption of the response, and 
 This encrypted message is then sent as a query to the FPC chaincode on the peer hosting the Enclave.
 Information on the location of that peer is also stored in the Enclave Registry.
 This query, as well as the query to the registry, are through calls to the regular Fabric SDK.
-All these steps arefully transparent to the applications layer.
+All these steps are fully transparent to the applications layer.
 
 The query is forwarded via the peer and some clue code to the FPC Shim inside the Enclave.
 Inside the Enclave, the FPC Shim decrypts the arguments of the proposal and saves the client's response encryption key.
