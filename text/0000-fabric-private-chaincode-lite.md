@@ -160,7 +160,6 @@ The chaincode deployment follows mostly the standard Fabric procedure:
 - The deployer compiles an agreed-upon FPC Chaincode using the FPC build environment.
   This step creates a package with the main FPC deployment artifact, the `enclave.signed.so` enclave binary, and deployment metadata.
   FPC provides convenience scripts to facilitate this step.
-  (See [Chaincode Development Section](#Chaincode) for more info on `enclave.signed.so` and `MRENCLAVE` referenced below.)
 - Subsequently, the deployer follows the standard Fabric 2.0 Lifecycle steps, i.e., `install`, `approveformyorg` and `commit`. 
   A noteworthy FPC specific aspect is that the version used *must* be the code identity of the FPC Chaincode, i.e., `MRENCLAVE` for SGX.
   <!-- 
@@ -195,7 +194,7 @@ A detailed description (internal view) of the FPC deployment process is provided
 
 - FPC Chaincode must be written in C/C++ using the FPC SDK. More language support is planned.
 - FPC Endorsing Peers must use the FPC Chaincode runtime.
-- FPC’s runtime relies on the External Builder and Launcher feature of Fabric
+- FPC’s runtime relies on the External Builder and Launcher feature of Fabric.
   <!-- comment out below as we haven't introduced registry yet and, at least so far, we have put the registration under the cover of cli
    FPC's attestation infrastructure requires the installation of an FPC Registry chaincode per channel.
   -->
@@ -215,7 +214,7 @@ This section describes the FPC Architecture (internal view).
 The first realization of FPC is called *FPC Lite*.
 The framework enables a class of applications which do not require release of sensitive data conditioned on private ledger state.
 This class includes smart contracts which operate on sensitive medical data, or enforce confidential supply chain agreements.
-The [Roll-back Protection Extension](#rollback-protection-extension) to FPC Lite can enable support of an even larger class of applications.
+The [Rollback-Protection Extension](#rollback-protection-extension) to FPC Lite can enable support of an even larger class of applications.
 
 
 ### Use case: Privacy-enhanced Federated Learning on FPC Lite
@@ -242,7 +241,7 @@ The FPC Lite architecture is constituted by a set of components which are design
 ### Chaincode Enclave
 
 Within the peer, the TEE (i.e., the Chaincode Enclave) determines the trust boundary that separates the sensitive FPC Chaincode (and shim) from the rest of system.
-The FPC Chaincode implements the smart contract logic (see the FPC Chaincode development section) using C/C++.
+The FPC Chaincode implements the smart contract logic (recall the FPC Chaincode development section) using C/C++.
 In particular, the TEE enhances confidentiality and integrity for code and data inside the enclave against external threats from untrusted space.
 In other words, a FPC Chaincode and its data are isolated from the peer.
 Also, the code inside the enclave uses cryptographic mechanisms to securely store (resp. retrieve) any data (i.e., chaincode state) to (resp. from) the ledger in untrusted space.
@@ -469,17 +468,19 @@ FPC Lite is not designed for chaincodes which are implemented to release confide
 In fact, although chaincodes can protect the confidentiality and integrity of any data that they store on the ledger, they have no means to verify whether such data has been committed.
 Hence, their hosting peer might provide them with legitimate yet stale, or non-committed, ledger data.
 
-FPC Lite is therefore not suitable for the class of applications that require a proof of committed ledger data.
+FPC Lite does therefore not support for the class of applications that require a proof of committed ledger data.
 This includes, for example, smart contracts implementing sealed auctions, or e-voting mechanisms.
 Arguably, these applications require checking whether a condition is met (e.g., "if the auction is closed") in order to release confidential data (e.g., "then the highest bid is X").
 
-Extensions to the FPC Lite architecture can enable coverage of this larger class of private applications.
-In particular, the framework can provide chaincodes with a verifiable proof of committed ledger data by implementing a trusted ledger enclave.
+Even though the lack of proof-of-committed ledger data appears to limit the use of FPC, additional means could be integrated on the application level to enable coverage of this larger class of private applications.
+Alternatively, an extension to the FPC Lite Architecture can address this limitation.
+In particular, the FPC framework can provide chaincodes with a verifiable proof of committed ledger data by implementing a trusted ledger enclave.
 The design documents referenced in [Design Documents](#design-documents) already outline the path to realize such architecture extension.
+We refer to this as the Full FPC specification.
 
 ## References to Design Documents
 
-The full detailed protocol specification of FPC is documented in a series of UML Sequence Diagrams:
+The full detailed protocol specification of FPC Lite is documented in a series of UML Sequence Diagrams. Note that in addition to the FPC Lite specification, we already provide a proposal to extend FPC Lite to the Full FPC specification that addresses the limitations addressed in the previous section.
 
 - The [fpc-lifecycle-v2](../images/fpc/full-detail/fpc-lifecycle-v2.png) diagram describes the lifecycle of a FPC Chaincode, focusing in particular on those elements that change in FPC vs. regular Fabric.
 - The [fpc-registration](../images/fpc/full-detail/fpc-registration.png) diagram describes how an FPC Chaincode Enclave is created on a Peer and registered at the FPC Registry, including the Remote Attestation process.
@@ -513,7 +514,7 @@ This will include the core infrastructure for FPC including the C/C++ Chaincode 
 
 # Feature Roadmap
 
-- Design and implementation of the [Roll-back Protection Extension](#rollback-protection-extension)
+- Design and implementation of the [Rollback-Protection Extension](#rollback-protection-extension).
 
 - Support for WebAssembly Chaincode: A primary goal for FPC moving forward is to support WebAssembly chaincode, and by extension all languages that compile to WASM.
 There has already been extensive development of a high-performance open source WASM Interpreter / Compiler for Intel&reg; SGX Enclaves in the [Private Data Objects](https://github.com/hyperledger-labs/private-data-objects) project, and our current plan is to adopt that capability in the next major phase of FPC.
@@ -521,11 +522,11 @@ FPC's modular architecture has been designed from the beginning to enable this d
 
 - Support for other TEEs: The FPC team is also participating in early discussions in the [Confidential Computing Consortium](https://confidentialcomputing.io/), which aims to provide a standardized way of deploying WASM across multiple TEE technologies.
 
-- Support for rich endorsement policies
+- Support for rich endorsement policies.
 
 - Risk Management and Deployment Policies: We intend to support deployment policies which allow the users to define where a FPC Chaincode is allowed to be deployed.  For instance, the user could define that a certain FPC Chaincode can only executed by an endorsing peer on a on-premise node of a certain organization.  This allows enhanced risk management.
 
-- Support for private data collections for FPC Chaincodes
+- Support for private data collections for FPC Chaincodes.
 
 - Support for chaincode-to-chaincode invocations: The initial version of FPC does not support
 to call other chaincodes from a FPC Chaincode; as this is a useful feature often used by chaincode applications, we intend to support this functionality in a future release.
