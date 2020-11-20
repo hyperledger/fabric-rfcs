@@ -80,7 +80,7 @@ The Shim is responsible to provide access to the ledger state as maintained by t
 Applications can interaction with a FPC Chaincode using an extension of the Fabric Client Go SDK.
 This FPC extension exposes the Fabric `gateway` interface and transparently encrypts and authenticates all interactions with a FPC Chaincode.
 
-Note that FPC hides all interactions with the TEE technology from the developers, i.e., they they do not have to understand the peculiarities of TEEs.  This largely also applies to the adminstrators deploying FPC Chaincode, although they will have to understand the general concepts of TEE to make informed decisions on security policies and to configure the attestation credentials.
+Note that FPC hides all interactions with the TEE technology from the developers, i.e., they they do not have to understand the peculiarities of TEEs.  This largely also applies to the administrators deploying FPC Chaincode, although they will have to understand the general concepts of TEE to make informed decisions on security policies and to configure the attestation credentials.
 
 To illustrate the interaction between an application and a FPC Chaincode see the following figure. In particular, this figure highlights the encrypted elements of the FPC architecture.
 
@@ -102,7 +102,7 @@ Note that with the exception of the results, where also a legitimate requestor k
 <!-- this section should cover: platform (x86, sgx sdk, linux; but also via docker); cmake; shim.h -> hello world tutorial -->
 
 As mentioned earlier, FPC Chaincode is executed in an enclave.
-In the initial version, FPC will supports Intel SGX as trusted execution technology.
+In the initial version, FPC will supports Intel&reg; SGX as trusted execution technology.
 For this reason, a FPC Chaincode must currently be written in C++ using our FPC SDK, which builds on top of the Intel [SGX SDK](https://github.com/intel/linux-sgx).
 The current development platform is Linux (Ubuntu). However, we also do enable seamless development via docker. 
 Hence, development is also easily possible with MacOS or Windows as host.
@@ -297,9 +297,9 @@ The normal Fabric chaincode deployment is extended with the creation and registr
 ### Channel Setup and Enclave Registry
 
 We assume the following Fabric setup.
-The participants that like to collaborate using a FPC Chaincode have created and joined Fabric channel.
+The participants that like to collaborate using a FPC Chaincode have created and joined a Fabric channel.
 The peers of that channel are configured to use FPC, that is, have set External Builder configuration for FPC in the `core.yaml`.
-FPC Chaincode admin has registered with the Intel® Attestation Service (IAS).
+The peer administrators/operators have registered with the Intel&reg; Attestation Service (IAS).
 
 As described in the architecture section above, FPC uses a Enclave Registry Chaincode (ERCC) to
 maintain FPC Chaincode Enclave identities.
@@ -341,11 +341,11 @@ The key material for chaincode state encryption and the chaincode encryption key
 The enclave initialization completes by returning the `credentials` of the FPC Chaincode.
 The credentials contain all public chaincode parameters, including the enclave public signature key.
 In particular, these information are protected through the process of an attestation protocol.
-Using Intel® SGX, the enclave produces attested data that allows to verify that a legitimate TEE is running the expected code.
+Using Intel&reg; SGX, the enclave produces attested data that allows to verify that a legitimate TEE is running the expected code.
 Importantly, the code identity (`MRENCLAVE`) of the FPC Chaincode executed inside the enclave is part of the attested data.
 The enclave initialization/creation is illustrated in step 3 - 7. in the figure above.
 
-Next, in the case of EPID-based Intel® SGX, attestations must be converted into a publicly-verifiable evidence by contacting the Intel Attestation Service (IAS).
+Next, in the case of EPID-based Intel&reg; SGX, attestations must be converted into a publicly-verifiable evidence by contacting the Intel Attestation Service (IAS).
 The FPC Client SDK performs this step using the admin's IAS subscription (see step 8 - 9.).
 At this point the root CA certificate of the trusted hardware manufacturer represents the root of trust for the publicly-verifiable credentials.
 
