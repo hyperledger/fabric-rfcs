@@ -27,7 +27,7 @@ FPC is available open-source on Github (https://github.com/hyperledger-labs/fabr
 FPC operates by allowing a chaincode to process transaction arguments and state without exposing the contents to anybody, including the endorsing peers.
 Also, the framework provides interested parties (clients and peers) with the capability to establish trust in an FPC Chaincode.
 This is achieved by means of a hardware-based remote attestation, which parties use to verify that a genuine TEE protects the intended chaincode and its data.
-Clients can thus establish a secure channel directly with the FPC Chaincode (as opposed to the peer hosting the chaincode) which preserves the confidentiality of transaction arguments and responses.
+Clients can thus establish a secure channel with the FPC Chaincode (as opposed to the peer hosting the chaincode) which preserves the confidentiality of transaction arguments and responses.
 On the hosting peer, the TEE preserves the confidentiality of the data while the chaincode processes it.
 Such data includes secret cryptographic keys, which the chaincode uses to secure any data that it stores on the public ledger.
 
@@ -56,7 +56,7 @@ The architecture presented below is driven by two goals:
 (1) minimize the requirements on Fabric core, specifically no code changes,
 (2) enable a clear roadmap beyond this first architecture to cover larger classes of use-cases, to provide a richer programming model and to gain additional performance benefits (besides computation also reduce communication costs over standard fabric) while providing a largely unchanged [User Experience](#user-experience).
 
-Overall, FPC adds another line of defense around a chaincode. Over time and with continued development of support for other languages and Trusted Execution Environments, we intend FPC to become the standard way to execute many or even most chaincodes in Fabric, similar to what HTTPS has become for the Web.
+Overall, FPC adds another line of defense around a chaincode, in addition to channels and private data.
 
 # User Experience
 [functional-view]: #functional-view
@@ -83,7 +83,7 @@ Writing chaincode for FPC should come natural to developers familiar with Fabric
 The main differences are a (for now at least) different programming language (C++) and a Shim API which implements a subset of the current Fabric API.
 The Shim is responsible to provide access to the ledger state as maintained by the `untrusted` peer. In particular, the FPC Shim, under the cover and transparent to the developer, encrypts all state data that is written to the ledger and decrypts them when retrieved later. Similarly, it also encrypts and authenticates all interaction with the applications, see below. Lastly, it attests to the result and the state update based on the enclave's hardware identity to provide a hardware-trust rooted endorsement.
 
-Applications can interaction with a FPC Chaincode using an extension of the Fabric Client Go SDK.
+Applications can interact with a FPC Chaincode using an extension of the Fabric Client Go SDK.
 This FPC extension exposes the Fabric `gateway` interface and transparently encrypts and authenticates all interactions with a FPC Chaincode.
 
 Note that FPC hides all interactions with the TEE technology from the developers, i.e., they they do not have to understand the peculiarities of TEEs.  This largely also applies to the administrators deploying FPC Chaincode, although they will have to understand the general concepts of TEE to make informed decisions on security policies and to configure the attestation credentials.
@@ -211,9 +211,9 @@ An organization can modify any software (including any hypervisor, operating sys
 Yet, such an organization would not be able to extract private state from the chaincode,
 or learn anything about the requests or responses of the victim organization (other than what the chaincode logic allows them to learn about it).
 
-- Organizations do have to trust a quorum of other organizations as defined by the lifecycle and chaincode endorsement policies as far as integrity of chaincode metadata is concerned. E.g., they have to rely on quorums of admins to only create and modify chaincodes as appropriate and they have to rely on quorum of peers to properly execute enclave registry and validation chaincode transactions.
+- Organizations do have to trust a quorum of other organizations as defined by the lifecycle and chaincode endorsement policies as far as integrity of chaincode metadata is concerned. E.g., they have to rely on quorums of admins to only create and modify chaincodes as appropriate and they have to rely on quorum of peers to properly execute transactions of the Enclave Registry and the Enclave Endorsement Validation (see more details [below](#architecture)).
 
-- We also assume that normally users trust the peers of their own organization, e.g., when retrieving chaincode encryption keys. (This is primarily for simplicity. As for any Fabric chaincode, users outside of organizations could implement queries without trust in a single organization/peer by repeating queries withe multiple peers/organizations until enough identical responses are received to satisfy the endorsement policy, similar to transaction validation at peers before applying them to the ledger.)
+- We also assume that normally users trust the peers of their own organization, e.g., when performing lifecycle operations or invoking chaincode execution. (This is primarily for simplicity and is relevant when retrieving public FPC encryption keys from the Enclave Registry. As for any Fabric chaincode, users outside of organizations could implement queries without trust in a single organization/peer by repeating queries with multiple peers/organizations until enough identical responses are received to satisfy the endorsement policy, similar to transaction validation at peers before applying them to the ledger.)
 
 - We do assume that a code running inside a TEE cannot be tampered with or its memory inspected. Similarly, we also require that remote attestation provided by a TEE are authentic and prove that only the code referenced in the attestation could have issued it.
   Therefore, all participants/organizations trust a TEE (in particular, the FPC Chaincode Enclave), which can provide such an attestation, regardless of at which peer/organization the TEE is hosted.
@@ -266,8 +266,8 @@ A sketch of an possible solution with FPC 1.0 for above problem would be as foll
 - However, this approach assumes that the learning of the privacy-preserving model is performed by a trusted entity.
   This is where FPC 1.0 comes in: It is perfectly matched to perform this role, ensuring the integrity of the computation as well as the confidentiality of the training data related information exchanged during training.
 - More specifically, the participating hospitals would compute separate teacher models locally on their own data and send the resulting model encrypted and signed to the chaincode.
-  The chaincode would authenticate and validate the teacher models based on parameters apriori agreed and built into the chaincode, accumulate and record the submission in the ledger and, once sufficient inputs are received, will perform privately inside the chaincode the final student model computation.
-  Lastly, it will publish the resulting model, e.g., via put_public_state,on the ledger.
+  The chaincode would authenticate and validate the teacher models based on parameters a priori agreed and built into the chaincode, accumulate and record the submission in the ledger and, once sufficient inputs are received, will perform privately inside the chaincode the final student model computation.
+  Lastly, it will publish the resulting model, e.g., via `put_public_state`, on the ledger.
 - Additionally, FPC 1.0 could be used to further strengthen the security by requiring also that the teacher-model computation at the hospitals are run as FPC chaincode, ensuring that only vetted and unmodified training programs can participate in the algorithm, and allowing also the inclusion of mechanisms to foil possible Adversarial Machine Learning attacks.
 
 This solution allows to build an efficient solution and doing so in a natural way, based on a rich and familiar development environment.
@@ -329,14 +329,17 @@ This prevents a malicious peer from responding with a wrong transaction encrypti
 
 
 ### Enclave Endorsement Validation
-The Enclave Endorsement Validation component verifies the correctness of a result of an FPC Chaincode execution and persists state updates to the ledger.
-In particular, the Validation Logic receives the output of a FPC Chaincode invocation, which is encrypted and signed by the enclave.
-The validation logic verifies the signature over the enclave execution response and that the response was produces by an enclave registered at the  Enclave Registry.
-Once the verification succeeds, the Enclave Endorsement Validation component applies any state updates issued by the FPC Chaincode.
-As the Validation logic is bundled together with the FPC Chaincode in a single Fabric chaincode package,
-these updates are eventually committed within the same namespace.
-Hence, they will be visible to the FPC Chaincode in subsequent invocations.
 
+FPC uses a two-step execution process where first the FPC chaincode executes, and then the Enclave Endorsement Validation executes, with the latter serving as the traditional Fabric transaction.
+The Enclave Endorsement Validation component implements the second step of an FPC chaincode invocation.
+It verifies the correctness of a result of an FPC Chaincode execution and produces the FPC chaincode state updates as a read/writeset of a traditional Fabric transaction.
+In particular, the Validation Logic receives the output of a FPC Chaincode invocation, which is encrypted and signed by the enclave.
+The validation logic verifies the signature over the enclave execution response and that the response was produced by an enclave registered at the Enclave Registry.
+Once the verification succeeds, the Enclave Endorsement Validation component applies any state updates issued by the FPC Chaincode using `get_state` and `put_state` operations.
+As the Validation logic is bundled together with the FPC Chaincode in a single Fabric chaincode package,
+these updates are eventually committed within the same namespace during the validation-and-commit phase of a Fabric transaction. 
+Hence, they will be visible to the FPC Chaincode in subsequent invocations.
+We provide more details in the [FPC Transaction Flow](#transaction-flow) Section below.
 
 
 ## Deployment Process
@@ -415,6 +418,7 @@ In a multi-enclave deployment, the key material to encrypt/decrypt the chaincode
 We already propose a key generation and distribution protocol as part of our [FPC specification](../images/fpc/full-detail/fpc-key-dist.png).
 
 ## FPC Transaction Flow
+[transaction-flow]: #transaction-flow
 
 Now we describe the FPC transaction flow comprising client invocation, chaincode execution, and enclave endorsement validation as illustrated in the figure below. 
 
@@ -439,7 +443,7 @@ In the figure above, the invocation is illustrated with Step 1 - 5.
 The FPC Chaincode processes the invocation according to the implemented chaincode logic.
 While executing, the chaincode can access the World State through `getState` and `putState` operations provided by the FPC Shim. From the chaincode perspective, the arguments of the former, and the output the latter, are plaintext data.
 
-The FPC Shim fetches the state data from the peer and loads it into the enclave, and similarly it stores data by forwarding it to the peer.
+The FPC Shim fetches the state data from the peer and loads it into the enclave.
 Most importantly, the shim maintains the read/writeset, and uses the State Encryption Key to
 (a) authenticate and encrypt data with AES-GCM during store operations, and
 (b) to decrypt and check the integrity of data during fetch operations.
@@ -528,8 +532,9 @@ It allows for different chaincode implementations as long as changes to the ledg
 - State-based endorsement
 - Chaincode-to-chaincode invocations (cc2cc)
 - Private Collections
-- Complex (CouchDB) queries like range queries
-- Endorsemen and validation plugins as well as decorators
+- Range queries
+- Complex (CouchDB) queries
+- Endorsement and validation plugins as well as decorators
 
 ## Rollback-Protection Extension
 
