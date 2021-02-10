@@ -51,7 +51,7 @@ It offers some security capabilities, such as detecting unexpected executions, o
 Hyperledger Fabric developers can take advantage of those techniques with no code changes to their existing chaincode deployments.
 Each chaincode execution generates a top-level trace and will report to an endpoint provided by the environment.
 They may desire to build additional spans to capture additional data, or report errors. The spans they create will 
-correlate automatically to the parent span.
+correlate to the parent span using the local thread context.
 
 Developers may also create a trace before calling out to Fabric in their client code.
 The current trace information will be sent along with the message to the peer.
@@ -67,12 +67,12 @@ to point at an OpenTelemetry collector instance.
 
 ## Message headers
 
-The trace information is passed in as additional data to the message, using a new field containing headers.
+The trace information is passed in as an optional gRPC metadata header.
 Trace headers are filled in by the SDK and read by the chaincode execution framework.
 
 ## Changes to the chaincode shims
 
-Each shim implementation should be modified to explicitly handle the additional message field to capture the trace ID passed in.
+Each shim implementation should be modified to capture the trace ID passed in as a gRPC metadata header.
 If no parent trace information is present, the shim continues and creates a new trace with no parent relationship.
 
 As a demonstration, in this [PR](https://github.com/hyperledger/fabric-chaincode-java/pull/153/files#diff-db5cb40a9966f929cdf9963d606b8961248f94aac09ed150491fdc41e73d82b9R94), the Java shim implementation `call()` method which calls the chaincode execution changes to embed a try/finally statement
@@ -100,8 +100,7 @@ trace data to an endpoint of their choosing.
 
 OpenTelemetry has not reached 1.0. It has unequal maturation between metrics, traces and logs, and across languages.
 However, traces and metrics are well ahead of logs, and Java, Go and Javascript are well supported.
-
-The changes require a change in the structure of Protobuf messages, which may require a major upgrade of Fabric.
+Please note OpenTelemetry Java has reached unofficial 1.0 RC2 on 2/9/21 and is aggressively 1.0.
 
 The OpenTelemetry reporting system happens securely over Protobuf, with chaincode containers and client applications sending data.
 This requires that an OpenTelemetry-compatible endpoint is present to receive the data.
@@ -111,7 +110,7 @@ This requires that an OpenTelemetry-compatible endpoint is present to receive th
 
 This design allows full observability of Hyperledger Fabric, to a degree of detail that will help developers understand
 the impact of the chaincode and organize operations using the latest framework. This allows Hyperledger Fabric
-to report meaningful data in a similar way that cloud-native applications are built right now.
+to report meaningful data just like cloud-native applications.
 
 Alternatively, developers can develop their own homegrown designs to report data along the way, or use logs only
 to understand how the system performed and investigate issues.
@@ -146,8 +145,3 @@ None.
 # Unresolved questions
 [unresolved]: #unresolved-questions
 
-## Trace ID header format
-We need to pick a standard form for the message header that will represent the caller trace ID.
-Right now, the Java shim example uses a B3 header.
-We can choose to support any header, and try all known header extraction mechanisms.
-We probably should change the header format to the [W3C trace id standard](https://www.w3.org/TR/trace-context/).
