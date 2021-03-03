@@ -14,7 +14,7 @@ nav_order: 3
 [summary]: #summary
 
 This request for comments proposes integrating Hyperledger Fabric, its SDKs, core and chaincode components 
-with the OpenTelemetry project. It advocates for relying on OpenTelemetry to record and send metrics.
+with the OpenTelemetry project.
 It introduces the concept of tracing, reporting the execution of chaincode, core components and SDKs to help correlate activities with the chain.
 
 # Motivation
@@ -22,26 +22,22 @@ It introduces the concept of tracing, reporting the execution of chaincode, core
 
 The OpenTelemetry project is a CNCF project that aims to standardize observability, especially in a cloud-native environment.
 OpenTelemetry is working to create a standard around representing metrics, traces and logs.
-We aim to bring full observability of Hyperledger Fabric to allow tracing of transactions all the way from the client
-to each of the chaincode invocations. We also want to capture chaincode interactions.
-We want to be able to trace and correlate actions from chaincode events.
+We aim to bring full observability of Hyperledger Fabric to allow tracing of transactions all the way from the SDK to each of the chaincode invocations.
 
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-In this guide, we will cover the notion of observability. Observability comes from the DevOps world, and is defined in
-[Wikipedia](https://en.wikipedia.org/wiki/Observability) as "a measure of how well internal states of a system 
+Observability comes from the DevOps world, and is defined in [Wikipedia](https://en.wikipedia.org/wiki/Observability) as "a measure of how well internal states of a system 
 can be inferred from knowledge of its external outputs".
 Software that is observable exposes its behaviors by sending traces, which represent the path of execution of a particular request.
 Each trace can be represented as a set of spans that are correlated as child/parent or sequential relationships.
 Observable software is exposing metrics, representing the internal state of the components, as well as logs, emitted from the execution of the software.
 
-In Hyperledger Fabric, we rely on the OpenTelemetry framework to report traces, metrics and logs, and correlate them across services.
+In Hyperledger Fabric, we rely on the OpenTelemetry framework to report traces and correlate them across services.
 
-In practice, this means a request made by a client connected via the Fabric SDK to a node can pass on the context of a trace. 
-When chaincode executes, it can correlate to that trace, or create its own, and report to a collector storing this information.
-Chaincode can also expose traces in chaincode events. Any code triggered from such an event can then use that trace to report its origin.
+In practice, this means a request made by a client connected via the Fabric SDK to a node can pass on the context of a trace.
+Peers and orderers propagate the trace context and create spans indicating their own interaction.
 
 Blockchain operators can reconstitute a graph of the interaction of all the components at play to create a service map.
 This helps uncover trends and issues of performance, as well as shortening the time it takes to investigate problems.
@@ -50,17 +46,9 @@ It offers some security capabilities, such as detecting unexpected executions, o
 
 Hyperledger Fabric developers can take advantage of those techniques with no code changes to their existing chaincode deployments.
 Each chaincode execution generates a top-level trace and will report to an endpoint provided by the environment.
-They may desire to build additional spans to capture additional data, or report errors. The spans they create will 
-correlate to the parent span using the local thread context.
 
 Developers may also create a trace before calling out to Fabric in their client code.
 The current trace information will be sent along with the message to the peer.
-
-Finally, developers may like to report metrics as part of chaincode execution. They can use OpenTelemetry counters,
-gauges and other metrics constructs to report metric data.
-The metric endpoint is configured when the chaincode is deployed. 
-In the case of external chaincode, the developers can set standard [OpenTelemetry variables](https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/sdk-environment-variables.md)
-to point at an OpenTelemetry collector instance.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -69,18 +57,6 @@ to point at an OpenTelemetry collector instance.
 
 The trace information is passed in as an optional gRPC metadata header.
 Trace headers are filled in by the SDK and read by the chaincode execution framework.
-
-## Changes to the chaincode shims
-
-Each shim implementation should be modified to capture the trace ID passed in as a gRPC metadata header.
-If no parent trace information is present, the shim continues and creates a new trace with no parent relationship.
-
-As a demonstration, in this [PR](https://github.com/hyperledger/fabric-chaincode-java/pull/153/files#diff-db5cb40a9966f929cdf9963d606b8961248f94aac09ed150491fdc41e73d82b9R94), the Java shim implementation `call()` method which calls the chaincode execution changes to embed a try/finally statement
-that creates and ends the span once execution is finished. It also captures exceptions thrown during execution to set the status of the trace as an error.
-
-The Java chaincode shim also changes to implement the MetricsProvider interface to [provide metrics through OpenTelemetry](https://github.com/hyperledger/fabric-chaincode-java/pull/153/files#diff-d97166bc281ed3eec5bb83ccd164698c2ee3ae1bd5e8e4ab6a8ea1d86068e951R24).
-
-The same set of changes must be applied to the Go and Javascript shim implementations.
 
 ## Changes to client SDKs
 
@@ -95,12 +71,15 @@ The trace and span ID must be sent to the chain as a message header.
 The SDK should use the standard environment variable environment to let users define how and if they want to report
 trace data to an endpoint of their choosing.
 
+## Changes to peers and orderers
+
+Peers and orderers capture and propagate trace information using an optional gRPC metadata header, if enabled.
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
-OpenTelemetry has not reached 1.0. It has unequal maturation between metrics, traces and logs, and across languages.
+OpenTelemetry has reached 1.0. Metrics and logs are still considered in alpha stage.
 However, traces and metrics are well ahead of logs, and Java, Go and Javascript are well supported.
-Please note OpenTelemetry Java has reached unofficial 1.0 RC2 on 2/9/21 and is aggressively 1.0.
 
 The OpenTelemetry reporting system happens securely over Protobuf, with chaincode containers and client applications sending data.
 This requires that an OpenTelemetry-compatible endpoint is present to receive the data.
