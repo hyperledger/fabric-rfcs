@@ -35,7 +35,7 @@ Specifically, for Hyperledger Fabric, administrators can expect the following of
 
 Similarly, there are benefits to Hyperledger Fabric maintainers, code contributors, and the wider community:
 
-- New features and other changes can quickly be applied to the master branch, and distributed to the user community for trial, without impacting production deployments.
+- New features and other changes can quickly be applied to the main branch, and distributed to the user community for trial, without impacting production deployments.
 - Community feedback on new features can be solicited and acted upon.
 - Bug fixes only need to be backported to a small number of designated LTS releases.
 - Extra tests (e.g. upgrade tests for non-subsequent versions) only need to be executed against a small number of designated LTS releases.
