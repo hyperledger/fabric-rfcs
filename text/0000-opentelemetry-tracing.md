@@ -4,7 +4,7 @@ title: OpenTelemetry Integration
 nav_order: 3
 ---
 
-- Feature Name: OpenTelemetry Integration
+- Feature Name: OpenTelemetry Tracing Integration
 - Start Date: 2021-01-12
 - RFC PR: (leave this empty)
 - Fabric Component: core, sdks
@@ -13,17 +13,16 @@ nav_order: 3
 # Summary
 [summary]: #summary
 
-This request for comments proposes integrating Hyperledger Fabric, its SDKs, peers and orderers components 
-with the OpenTelemetry project.
-It introduces the concept of tracing, reporting the transmission of messages to help correlate activities with the chain.
+This request for comments proposes integrating Hyperledger Fabric, its SDKs, core and chaincode components with the OpenTelemetry project.
+It introduces the concept of tracing, reporting the execution of chaincode, core components and SDKs to help correlate activities with the chain.
+
 
 # Motivation
 [motivation]: #motivation
 
-The OpenTelemetry project is a CNCF project that aims to standardize observability, especially in a cloud-native environment.
+The OpenTelemetry project is a CNCF project that aims to standardize observability.
 OpenTelemetry is working to create a standard around representing metrics, traces and logs.
-
-We aim to bring full observability of Hyperledger Fabric to allow tracing of messages between peers, orderers and clients initiating transactions.
+This proposal aims to bring traceability of code execution in Hyperledger Fabric across peers, orderers and chaincode.
 
 
 # Guide-level explanation
@@ -42,7 +41,8 @@ Peers and orderers propagate the trace context and create spans indicating their
 
 Blockchain operators can reconstitute a graph of the interaction of all the components at play to create a service map.
 This helps uncover trends and issues of performance, as well as shortening the time it takes to investigate problems.
-It offers some security capabilities, such as detecting unexpected executions, or react quickly to metric changes.
+It offers some security capabilities, such as detecting unexpected executions, or react quickly to performance changes.
+Traces also report as errors when components are unavailable. This allows for monitoring and alerting systems.
 
 Hyperledger Fabric developers can take advantage of those techniques with no code changes.
 Each SDK execution generates a top-level trace and will report to an endpoint provided by the environment.
@@ -77,8 +77,7 @@ Peers and orderers capture and propagate trace information using an optional gRP
 # Drawbacks
 [drawbacks]: #drawbacks
 
-OpenTelemetry has reached 1.0. Metrics and logs are still considered in alpha stage.
-However, traces and metrics are well ahead of logs, and Java, Go and Javascript are well supported.
+OpenTelemetry is still relatively young, yet has reached maturity for traces support.
 
 The OpenTelemetry reporting system happens securely over Protobuf, with containers and client applications sending data.
 This requires that an OpenTelemetry-compatible endpoint is present to receive the data.
@@ -111,9 +110,8 @@ eliminate the black box feeling operators contend with.
 [testing]: #testing
 
 In addition to the current integration testing scenarios, it will be required to test the system alongside an instance
-of the OpenTelemetry collector collecting metrics and traces from the client applications.
-The OpenTelemetry instance can report to stdout, a zipkin UI, and to a Prometheus server all this information
-so testers can verify the correctness of the traces and metrics published.
+of the OpenTelemetry collector collecting traces from the client applications.
+The OpenTelemetry instance can report to a zipkin application all this information so testers can verify the correctness of the traces published.
 
 # Dependencies
 [dependencies]: #dependencies
