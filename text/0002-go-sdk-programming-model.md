@@ -23,7 +23,7 @@ The motivation of this work is to provide a consistent set of concepts and APIs 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-The Fabric documentation (v1.4 onwards) contains a chapter 'Developing Applications' which describes how to develop smart contracts and client applications using the new programming model.  The chapter illustrates the concepts using the example of a commercial paper, and gives code examples as it guides the user through the development steps.  This documentation, and related samples, currently applies to the Node and Java SDKs and chaincode contract APIs.  This RFC describes the implementation of this in the Go SDK and is related to [RFC 0001](https://github.com/hyperledger/fabric-rfcs/blob/master/text/0001-chaincode-go-new-programming-model.md) which describes the Go implementation of the chaincode contract API.
+The Fabric documentation (v1.4 onwards) contains a chapter 'Developing Applications' which describes how to develop smart contracts and client applications using the new programming model.  The chapter illustrates the concepts using the example of a commercial paper, and gives code examples as it guides the user through the development steps.  This documentation, and related samples, currently applies to the Node and Java SDKs and chaincode contract APIs.  This RFC describes the implementation of this in the Go SDK and is related to [RFC 0001](https://github.com/hyperledger/fabric-rfcs/blob/main/text/0001-chaincode-go-new-programming-model.md) which describes the Go implementation of the chaincode contract API.
 
 Note that this new programming model does not break any existing APIs.  Client applications written using these APIs will continue to work unchanged.
 
@@ -72,7 +72,7 @@ func main() {
     wallet := gateway.NewInMemoryWallet()
     wallet.Put("user", gateway.NewX509Identity(testCert, testPrivKey))
 
-    gw, err := gateway.Connect("connection-tls.json", 
+    gw, err := gateway.Connect("connection-tls.json",
                     gateway.WithIdentity(wallet, "user"),
                     gateway.WithDiscovery(false),
                     gateway.WithCommitHandler(gateway.DefaultCommitHandlers.OrgAny))
@@ -85,7 +85,7 @@ func main() {
     }
 
     contract := network.GetContract("fabcar")
-    
+
     result, err := contract.EvaluateTransaction("queryAllCars")
 
     if err != nil {
@@ -162,13 +162,13 @@ The `CreateTransaction` method creates a transaction object representing the nam
 The commit handler is a pluggable mechanism that controls how many commit events should be received before the client can continue processing.  It is selected as an option on the Gateway. The following policies are provided out of the box:
 - Wait for __all__ available peers in __your organisation__ to emit commit events – DEFAULT
 - Wait for __first__ peer in __your organisation__ to emit commit event
-- Wait for __all__ available peers in the __network channel__ to emit commit events 
+- Wait for __all__ available peers in the __network channel__ to emit commit events
 - Wait for __first__ peer in the __network channel__ to emit commit event
 Users can also implement their own commit handlers if they wish to have other behaviours.
 
 #### QueryHandler
 The query handler is a pluggable mechanism that controls which peers to target when evaluating a transaction function using `EvaluateTransaction()`. It is selected as an option on the Gateway. The following policies are provided out of the box:
-- Stick to a __single peer__.  Move to another one if it stops responding – DEFAULT 
+- Stick to a __single peer__.  Move to another one if it stops responding – DEFAULT
 - __Round-robin__ between available peers within your organisation.
 Users can also implement their own query handlers if they wish to have other behaviours.
 
@@ -207,7 +207,7 @@ This proposal builds (and depends) on the existing Go SDK as implemented in the 
 
 New client samples for Fabcar and Commercial Paper, implemented in Go, will be added to the `hyperledger/fabric-samples` repo.
 
-This is also related to, but does not depend on, [RFC 0001](https://github.com/hyperledger/fabric-rfcs/blob/master/text/0001-chaincode-go-new-programming-model.md) which brings the new programming model to the Go chaincode API.
+This is also related to, but does not depend on, [RFC 0001](https://github.com/hyperledger/fabric-rfcs/blob/main/text/0001-chaincode-go-new-programming-model.md) which brings the new programming model to the Go chaincode API.
 
 # Unresolved questions
 [unresolved]: #unresolved-questions
