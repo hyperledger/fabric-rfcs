@@ -33,11 +33,12 @@ Here, the Hyperledger Technical Working Group China (TWGC) proposes that the maj
 We now have 3 streams of China crypto libraries under Hyperledger-TWGC github organization. 
 Some of them has also provided successful ane enterprise-proven bccsp implementations. 
 But as along as we go deeper into fabric source, we notice implementing bccsp only could not fulfill all of Chinese national crypto specification requirements.
-There are some cypro library usages outside of bccsp, such as communication protocol, X509 format conversion. 
+There are some crypto library usages outside of bccsp, such as communication protocol, X509 format conversion. 
 It relates to fabric architect design thus we need broader consensus and feedbacks from community as an RFC level change. 
 
-
-Additionally, the new design should take care of not only Chinese but for any other national crypto standards. 
+Additionally, the new design should take care of not only Chinese but for any other national crypto standards. So discussion below will focus on two parts.
+- Adjust with new crypto standards to fabric in bccsp.
+- Adjust with new crypto standards at community level.
  
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -47,7 +48,11 @@ There are 3 configurations controlling hash algorithm used in fabric, separately
 - Fabric uses hash function based on `crypto_config` section in organization/msp level (controlling feature samples: private data)
 - Fabric uses hash algorithm based on `HashingAlgorithm` value in channel level (controlling feature samples: block hash)
 
-Beside bccsp, a new X509 interface is introduced. Rework of usage of `crypto/X509` includes making `crypto/X509` as an implementaion of new X509 interface.    
+To apply new crypto standards at bccsp:
+- As golang language, we have to rebuild the library as there no hot module adding or replacement way for golang.
+- New crypto standards implemented following bccsp is needed. So we need to adjust parts of bccsp for ex
+when a new X509 interface is introduced as much with national crypto standard or any new crypto standard. Rework of usage of `crypto/X509` includes making `crypto/X509` as an implementaion of new X509 interface.
+- The changes for the new crypto standards should be less impacts for fabric and in a configurable way if possible.
 
 This change should not impact Fabric usages if they are on default configuration. But it may impact on Fabric fork developers since we exposed more extensibility.
 
@@ -72,12 +77,58 @@ The section should return to the examples given in the previous section, and
 explain more fully how the detailed proposal makes those examples work.
 
 [**WIP**] along with previous feature examples
+## Detail proposal for BCCSP
+```
+- sw(adjust)
+- sm2(sample for new crypto standard)
+- util(adjust/new added as class loader)
+```
+Overall speaking, it seems we are going to impl a classloader logic for bccsp.
+- refactor current bccsp with new process logic.
+- impl for new crypto standard with api lists.
 
-crypto/X509 ==> [X509 interface](https://github.com/Hyperledger-TWGC/fabric-gm-plugins/blob/078c5bac196c2c89190b48b9fa05102800a56c34/interfaces.go#L13) 
-crypto/sha256 => hash.Hash interface
-bccsp implemtation copy to bccsp folder before rebuild fabric
+### Refactor current bccsp with new process logic.
+To make something as classloader in bccsp. There may need to build some global level map in `<type, function>` way. For example with below logic, we can reused `fileks.go` and by reflect, the code will auto switch between crypto logics which added.
+```
+		// TWGC todo
+		// make this map as global variable
+		var m map[reflect.Type]func(interface{}) bccsp.Key
+		m = make(map[reflect.Type]func(interface{}) bccsp.Key)
+		m[reflect.TypeOf(&ecdsa.PrivateKey{})] = NewECDSAPrivateKey
+		m[reflect.TypeOf(&sm2.PrivateKey{})] = NewSM2PrivateKey
+		for i, v := range m {
+			if i == reflect.TypeOf(key) {
+				return v(key), nil
+			}
+		}
+```
+### Implementing APIs basing on new crypto standards
+Here are the list below for the APIs should be implemented.
 
+## Detail proposal for sdk changes
 
+On fabric sdk side, we need align with the changes, so that from client to network able to use same crypto alg/crypto cruve or tls cert...
+
+### Detail Proposal for java sdk changes.
+For java SDK, we need refactor `org.hyperledger.fabric.sdk.security` package.
+1. supporting dynamic class loading with a modular crypto service jar package as implementation of `org.hyperledger.fabric.sdk.security`.
+1. the implation should implate for both msp/identity load from cert file.
+1. the implation should implate for tls connection.
+
+#### detail changes for `org.hyperledger.fabric.sdk.security`
+step 1: As `org.hyperledger.fabric.sdk.security.certgen` also a factory pattern on design which builder class to create keypair class for tls. we are able to refactor those two class into a factory interface and a impl interface.
+step 2: as all classes in `org.hyperledger.fabric.sdk.security` in factory pattern, a refactor can be made to make this package following factory pattern.
+step 3: the factory of `org.hyperledger.fabric.sdk.security` should support dynamic class load from an external jar file if provided. or use current implementation by default.
+
+#### if someone is going to implate a modular crypto service for java sdk
+step 1: for msp loading, impls interface defined in https://github.com/hyperledger/fabric-sdk-java/blob/master/src/main/java/org/hyperledger/fabric/sdk/security/CryptoSuite.java
+step 2: for tls config, impls new interface defined in step 1 above as refactor result for package `org.hyperledger.fabric.sdk.security.certgen`
+step 3: for class loader, impls factory class defined as steps 3 above as refacotr result for package `org.hyperledger.fabric.sdk.security`
+
+#### Drawbacks & A sample solution/workaround
+For java sdk, there some low level code outside fabric java sdk scope but as dependencies, for ex `io.netty`.
+A general solution for this is treating those jar dependencies as interfaces. 
+Modular crypto sevice provider should impl a changes for those jar dependencies by themselves.
 
 # Drawbacks
 [drawbacks]: #drawbacks
