@@ -6,6 +6,7 @@ nav_order: 3
 
 - Feature Name: OpenTelemetry Tracing Integration
 - Start Date: 2021-01-12
+- Update Date: 2021-12-06
 - RFC PR: (leave this empty)
 - Fabric Component: core, sdks
 - Fabric Issue: (leave this empty)
@@ -70,9 +71,31 @@ The trace and span ID must be sent to the chain as a message header.
 The SDK should use the standard environment variable environment to let users define how and if they want to report
 trace data to an endpoint of their choosing.
 
+To find bottleneck for fabric processing. At SDK side, we can add open tracing base on txid. Not only at GRPC side, but also each tx processing, a sample here: https://github.com/Hyperledger-TWGC/tape/tree/alpha, looks like:
+
+![A sample for full id tracing](https://user-images.githubusercontent.com/7820992/141783841-a4cee4c5-3275-4b58-b2f6-0c34e37d6e6f.png)
+
 ## Changes to peers and orderers
 
-Peers and orderers capture and propagate trace information using an optional gRPC metadata header, if enabled.
+Peers and orderers capture and propagate trace information using an optional gRPC metadata header, if enabled. 
+
+To find bottleneck for fabric processing, a sample here: https://github.com/SamYuan1990/fabric/tree/opentracing23 if we enable open tracing for peer and orderer it looks like:
+![A sample for peer commit phase](https://user-images.githubusercontent.com/7820992/144846677-6044b69f-d72b-490f-bcf6-0d161a7c1755.png)
+
+### Peer
+Open tracing at peer nodes can be discussed in two different point of views.
+
+- From the workflow point of view:
+1. Endorsement considering, basing on txid and tracing. The endorsement interface process tx via txid as unique identifier, we can easily apply with open tracing.
+1. Commit considering, basing on block processing. From the workflow point of considering, it's better to tracing block for each channel.
+1. Gossip considering, basing on block processing?
+
+- From business point of view: tx id for transaction only.
+
+### Orderer
+Envelopes and consensus phase, as orderer's interface with line:
+https://github.com/hyperledger/fabric/blob/main/orderer/consensus/consensus.go#L63
+we can tracing envelops in two phases, business envelops process and consensus at fundation level.
 
 # Drawbacks
 [drawbacks]: #drawbacks
@@ -81,6 +104,11 @@ OpenTelemetry is still relatively young, yet has reached maturity for traces sup
 
 The OpenTelemetry reporting system happens securely over Protobuf, with containers and client applications sending data.
 This requires that an OpenTelemetry-compatible endpoint is present to receive the data.
+
+For ex, 
+- At SDK side, to process with open telemetry for each txid. We need analysis blocks and it will make additional cost.
+
+- Together with opentelemetry which will adding more effort on operation and monitoring/integeration works.
 
 # Rationale and alternatives
 [alternatives]: #alternatives
