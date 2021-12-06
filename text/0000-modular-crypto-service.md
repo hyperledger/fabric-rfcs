@@ -79,29 +79,119 @@ explain more fully how the detailed proposal makes those examples work.
 [**WIP**] along with previous feature examples
 ## Detail proposal for BCCSP
 ```
-- sw(adjust)
-- sm2(sample for new crypto standard)
-- util(adjust/new added as class loader)
+- sw  -> generalBSSCP
 ```
-Overall speaking, it seems we are going to impl a classloader logic for bccsp.
-- refactor current bccsp with new process logic.
-- impl for new crypto standard with api lists.
+Overall speaking, we wanna to make BCCSP becomes a general workflow as blockchain crypto provider.
+Which means, we are going to refactor current sw workflow with serval kind of design patterns.
+
+Adapter pattern:
+We can imaging that we have an abstract proto type of interface there invoked by bccsp interface(as key.go) and plays role as adapter with specific crypto library.(ECDSA, PKCS11, SM2, etc...)
+
+Prototype pattern:
+We can use ECDSA, and PKCS11 as prototype as default for software crypto and hardware crypto samples, which used in CI, release etc...
+
+Factory pattern:
+For example, to adapt with any new crypto library
+- Someone need the crypto provider to implement the type(following prototype) and tested by themself.
+- Once the adaptor been implemented, everyone hope it can be easily integrated with fabric.
+1. <del>Someone fork fabric and code change etc... all doing by themself in specific forked branch.</del>
+1. Someone fork fabric and copy pasted adaptor impl as part of bccsp package, then recomplie fabric. (so far sample shows this way)
+1. Someone use fabric and compile adaptor, start fabric with adaptor binary as go plugin.
+
+Command Pattern:
+- Ref to above possbile ways of implemention, in either of solution, there need any paramter to decide with crypto library should be used.
+
+Take publicKey To EncryptedPEM as sample:
+
+#### Here is logic need to be added as a global wrapper to load plugin
+currently, some part of logic is implemented here. https://github.com/Hyperledger-TWGC/fabric/tree/bccsp-gm
+```go
+	// to do package gm
+	swbccsp.AddWrapper(reflect.TypeOf(&sm2.SM2PublicKey{}), &sm2.SM2PublicKeyKeyVerifier{})
+	......
+	func InitCryptoProviders() {
+		lock.Lock()
+		defer lock.Unlock()
+		// init
+		// publicKeyToEncryptedPEM
+		puk2epem = make(map[reflect.Type]func(k interface{}, pwd []byte) ([]byte, error))
+
+		//default AddWrapper for ecdsa
+		puk2epem[reflect.TypeOf(&ecdsa.PublicKey{})] = ECDSApublicKeyToEncryptedPEM
+
+		//AddWrapper for sm2
+		puk2epem[reflect.TypeOf(&ccssm2.PublicKey{})] = sm2.SM2publicKeyToEncryptedPEM
+	}
+```
+Full changes here: https://github.com/SamYuan1990/fabric/blob/packageRefactor/bccsp/sw/new.go#L107-L217
+
+#### Here is the logic changed in current sw to fill with wrapper above. 
+```go
+package sw
+
+publicKeyToEncryptedPEM(k interface{}, pwd []byte){
+	for i,v := range GetfromWrapperMap() {
+		if k.type == i.type {
+			return do(k,v)
+		}
+	}
+	return "not supported"
+}
+```
+Full changes here: https://github.com/SamYuan1990/fabric/blob/packageRefactor/bccsp/sw/keys.go#L315-L322
+
+#### A sample function as specific crypto wrapper/provider
+```go
+package specific
+import specific_crypto_lib
+
+//example function
+publicKeyToEncryptedPEM(k interface{}, pwd []byte){
+    specific impl
+}
+```
+Full changes here: https://github.com/Hyperledger-TWGC/fabric/tree/bccsp-gm/bccsp/sm2
+
+Option One:
+With help for go plugin, we are able to do:
+- Impl an interface as struct in plugin code.
+- Load the type of the interface by reflect.
+- Invoking interfaces method which provided by plugin.
+- From raw type to create plugin struct.
+For details, please refer https://github.com/SamYuan1990/go-plugindemo/blob/poc/main.go#L84-L110
+
+```go
+AddWapperMap(path string){
+p, err := plugin.Open(path.so)
+	if err != nil {
+
+	panic(err)
+
+	}
+	
+	initFunc, err := p.Lookup("init")
+  obj := initFunc().()
+
+	f, err := p.Lookup("publicKeyToEncryptedPEM")
+	...
+
+	my_type=reflect.Typeof(&obj)
+	//default for all type replacement
+	GlobalCryptoWrapper[my_type] = f
+}
+```
+
+Then we can make different kind of plugin.so file with interface defined in BCCSP and make the crypto implmentation plugable by switching the file.
+
+Option Two:
+We don't use the go plugin, as the limitation for ex: https://github.com/golang/go/issues/31354
+We put the specific crypto package as a part of bccsp package and rebuild fabric with the specific crypto package.(as build tag)
+Full changes here: https://github.com/Hyperledger-TWGC/fabric/tree/bccsp-gm
+
 
 ### Refactor current bccsp with new process logic.
 To make something as classloader in bccsp. There may need to build some global level map in `<type, function>` way. For example with below logic, we can reused `fileks.go` and by reflect, the code will auto switch between crypto logics which added.
-```
-		// TWGC todo
-		// make this map as global variable
-		var m map[reflect.Type]func(interface{}) bccsp.Key
-		m = make(map[reflect.Type]func(interface{}) bccsp.Key)
-		m[reflect.TypeOf(&ecdsa.PrivateKey{})] = NewECDSAPrivateKey
-		m[reflect.TypeOf(&sm2.PrivateKey{})] = NewSM2PrivateKey
-		for i, v := range m {
-			if i == reflect.TypeOf(key) {
-				return v(key), nil
-			}
-		}
-```
+
 ### Implementing APIs basing on new crypto standards
 Here are the list below for the APIs should be implemented.
 
