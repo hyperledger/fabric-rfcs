@@ -95,7 +95,17 @@ Open tracing at peer nodes can be discussed in two different point of views.
 ### Orderer
 Envelopes and consensus phase, as orderer's interface with line:
 https://github.com/hyperledger/fabric/blob/main/orderer/consensus/consensus.go#L63
-we can tracing envelops in two phases, business envelops process and consensus at fundation level.
+we can tracing envelops in two phases, business envelops process or consensus at fundation level.
+- From business point of view: tx id for transaction only.
+
+### Usage:
+as screen shot as 
+![txid based tracing](https://user-images.githubusercontent.com/7820992/150667822-9dfc93f7-2757-4008-8db1-0d4d589f3c7d.png)
+we are able to use 
+```
+txid=${txid}
+```
+to have a end to end tracing for specific transaction.
 
 # Drawbacks
 [drawbacks]: #drawbacks
