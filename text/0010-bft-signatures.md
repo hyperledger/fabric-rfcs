@@ -67,7 +67,7 @@ The threshold itself can vary depending on the consensus algorithm and on the st
 
 In a Byzantine setting, there is a fundamental assumption that there is an upper bound on the number of malicious or failed nodes
  among all the nodes that run the protocol, and that upper bound is denoted as `f`.
- In BFT, the ordering service is comprised of `n=3f+1` for some `f>0`, so we have up to `f` nodes which are either offline, unreachable or malicious,
+ In BFT, the ordering service is comprised of `n>3f` for some `f>0`, so we have up to `f` nodes which are either offline, unreachable or malicious,
  and `2f+1` nodes that are online, reachable and follow the protocol.
 
 An easy way of ensuring malicious orderers do not refrain from sending newly formed blocks is to simply pull blocks from `f+1` distinct orderers.
