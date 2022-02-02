@@ -249,7 +249,7 @@ The problem of correctly composing the consenter mapping and block validation po
 as this is consensus specific and can be addressed with custom tooling, such as `configtxgen` enhancements or any other tooling.
 
 
-The `MetadataSignature` shall be expanded to contain a `uint32` field of `signer_id` and the `bytes` field of the nonce` as in SmartBFT.
+The `MetadataSignature` shall be expanded to contain a `uint32` field of `signer_id` and the `bytes` field of the `nonce` as in SmartBFT.
 Accordingly, the procedure to build a signed data element from a `MetadataSignature` will first look if the `signature_header` is not empty, and if so it will proceed to regular processing.
 Otherwise, if the `signature_header` is empty, an ephemeral one will be reconstructed from the `nonce`, `signer_id` and the latest channel config and then procesing can proceed as formerly mentioned.
 
