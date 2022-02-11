@@ -188,6 +188,43 @@ We don't use the go plugin, as the limitation for ex: https://github.com/golang/
 We put the specific crypto package as a part of bccsp package and rebuild fabric with the specific crypto package.(as build tag)
 Full changes here: https://github.com/Hyperledger-TWGC/fabric/tree/bccsp-gm
 
+Option Three:
+Pre discussed on Fabric contributors meeting, there seems a 3rd option here for discussion.
+https://github.com/hyperledger/fabric/blob/main/msp/msp.go#L200
+https://github.com/hyperledger/fabric/blob/main/msp/identities.go#L170
+https://github.com/hyperledger/fabric/blob/main/msp/identities.go#L255
+With technical backgroud, as any identity will be a part of MSP in hyperledger fabric. And if we look at MSP interface, we can see that MSP interface as an unimplement type as others and current MSP implementation depends on BCCSP. 
+This dependency also supports option one and two, when we try to add a new crypto implementation for hyperledger fabric. 
+Which means, the question is equal with modular MSP service?
+```golang
+| MSP   |
+-------
+| BCCSP |
+```
+In further details, with relationship between MSP and BCCSP.
+for reference, https://github.com/hyperledger/fabric/blob/main/msp/identities.go#L55-L85
+The MSP interface depends on BCCSP interface as implementation.
+https://github.com/hyperledger/fabric/blob/main/msp/mspimpl.go#L42-L106
+also some fix use between MSP package, BCCSP package, and x509 package.
+Hence, we need to
+```golang
+| MSP  (response for upper case usage, as get MSP ID etc...) |
+-------
+| BCCSP (response for lower case implementation, as implementation for sign/verify/load certs from file) |
+```
+- [ ] Redefine MSP responsibilities.
+- [ ] Redefine BSSP responsibilities.
+- [ ] Refactor MSP implementation. as making https://github.com/hyperledger/fabric/blob/main/msp/identities.go#L37-L40
+```
+type identity struct {
+	// has a bccsp implementation here instead of two implementations below.
+	// this is the public key of this instance
+	pk bccsp.Key
+
+	// reference to the MSP that "owns" this identity
+	msp *bccspmsp
+}
+```
 
 ### Refactor current bccsp with new process logic.
 To make something as classloader in bccsp. There may need to build some global level map in `<type, function>` way. For example with below logic, we can reused `fileks.go` and by reflect, the code will auto switch between crypto logics which added.
