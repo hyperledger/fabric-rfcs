@@ -134,7 +134,7 @@ the [SeekInfo](https://github.com/hyperledger/fabric-protos/blob/main/orderer/ab
 
 ```
   // SeekContentType indicates what type of content to deliver in response to a request. If BLOCK is specified,
-  // the orderer will stream blocks back to the peer. This is the default behavior. If HEADER is  specified, the
+  // the orderer will stream blocks back to the peer. This is the default behavior. If HEADER_WITH_SIG is  specified, the
   // orderer will stream only a the header and the signature, and the payload field will be set to nil. This allows
   // the requester to ascertain that the respective signed block exists in the orderer (or cluster of orderers).
   enum SeekContentType {
