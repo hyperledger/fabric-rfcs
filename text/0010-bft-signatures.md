@@ -47,7 +47,7 @@ This RFC aims to:
 
 Currently, Hyperledger Fabric only supports ordering service types that are Crash Fault Tolerant (CFT), not Byzantine Fault Tolerant (BFT).
 
-There are two main attacks that are considered outside of the crash fault tolerant thread model, but must be protected against in the Byzantine fault tolerant setting:
+There are two main attacks that are considered outside of the crash fault tolerant threat model, but must be protected against in the Byzantine fault tolerant setting:
 
 **Block withholding**: A Byzantine orderer might be reluctant to send newly formed blocks to peers that connect to it, either because of malicious intent or to save egress network bandwidth charges from its hosting provider.
  Fabric architecture relies on peers receiving newly formed blocks as fast as possible, because otherwise client transaction submission times out and smart contract simulation results in stale reads.
@@ -129,7 +129,7 @@ Let's consider the two possible outcomes based on the orderer that is selected f
 2. Else, the orderer that blocks are pulled from is not withholding newly formed blocks. However, it is possible that new blocks are not formed due to lack of client activity. It is imperative to ensure that malicious ordering nodes cannot make honest ordering nodes be falsely suspected of block withholding.
 As each "block existence attestation" contains `2f+1` signatures it is impossible to forge one. Hence, if a node sends a attestation for block existence, it means this a block with such sequence number was indeed appended to the blockchain.
 
-In order for a peer or an orderer to convey the intent of receiving only blocks without transactions, 
+In SmartBFT, in order for an orderer to convey the intent of receiving only blocks without transactions, 
 the [SeekInfo](https://github.com/hyperledger/fabric-protos/blob/main/orderer/ab.proto#L45) message is expanded to contain also a `SeekContentType` field:
 
 ```
@@ -201,14 +201,52 @@ The proposed approach is heavily inspired by SmartBFT but is designed to be cons
 
 ### Block replication
 
-The proposed technique for block replication is essentially the approach of SmartBFT where a re-shuffling takes place not only upon suspicion of the block source but also in a timely fashion in order to be resilient to overloaded or deliberately slow orderers.   
+The proposed technique for block replication is similar to the approach of SmartBFT where a re-shuffling takes place not only upon suspicion of the block source but also in a timely fashion in order to be resilient to overloaded or deliberately slow orderers.   
 In order to save network bandwidth and processing power when the network is idle, the automatic time-based re-shuffling will only take place if new blocks are received.
-Moreover, there will not be a **need** to specify in the peer's local configuration (or an orderer's local configuration) which of the implementations to use. 
+In other words, a re-shuffling takes place after every `T` seconds in which some blocks are received.
+If no blocks are received during a timeframe `T'`, the node will probe for block attestations to see if a block withholding takes place. 
+The re-shuffling strategy would be configurable and the node operator would be able to disable it if needed.
+
+There will not be a **need** to specify in the peer's local configuration (or an orderer's local configuration) which of the implementations (CFT or BFT) to use. 
 Notice that a block validation policy that mandates signatures from multiple ordering nodes, is **never** satisfied by **only** principal sets of size one. 
 Or, equivalently, a block validation policy that is satisfied by **only** principal sets of size one never requires signatures from multiple ordering nodes. 
 Evidently, policies of the former type are **always** BFT policies, while policies of the latter type might be either a crash fault policy or a BFT policy that utilizes a threshold signature scheme.
 
-Therefore, Fabric nodes will pick the BFT implementation if either the block validation policy implies the need, or if an override is activated in the node's local configuration.  
+Therefore, Fabric nodes will pick the BFT implementation if either the block validation policy implies the need, or if an override is activated in the node's local configuration.
+Note that overriding the local configuration will only affect protection against block withholding attacks, and cannot impact policy validation.
+Therefore, the in the worst scenario of a misconfiguration, malicious ordereres still cannot forge blocks.
+
+Unlike the SmartBFT implementation, where the `SeekContentType` is expanded to accommodate sending back block attestations, we shall define a new gRPC service that will be serviced by orderers:
+
+````
+    // BlockAttestations receives an Envelope of type DELIVER_SEEK_INFO , then sends back a stream of BlockAttestations.
+    rpc BlockAttestations(Envelope) returns (stream BlockAttestationResponse);
+````
+
+
+
+Put simply, the consumer of the API sends to the service the same message as the block deliver API, but the messages
+received are `BlockAttestationResponse` messages.
+
+
+```
+message BlockAttestationResponse {
+    oneof Type {
+        common.Status status = 1;
+        BlockAttestation block_attestation = 2;
+    }
+}
+```
+
+The `status` is the regular [common.Status](https://github.com/hyperledger/fabric-protos/blob/main/common/common.proto#L15-L25) and the `BlockAttestation` is a block without a block data, and is defined as follows:
+
+```
+message BlockAttestation {
+       BlockHeader header = 1;
+       BlockMetadata metadata = 2;
+}
+```
+
 
 
 ### Block signature verification
