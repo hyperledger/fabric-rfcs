@@ -278,6 +278,11 @@ Orderer: &OrdererDefaults
       ...
 ```
 
+A typical block validation policy for BFT can be a [signature policy](https://github.com/hyperledger/fabric-protos/blob/release-2.4/common/policies.proto#L28-L33) 
+with a rule of a suitable threshold (e.g `2f+1` or `f+1` depending on `n`, `f` and the consensus protocol) and with identity principals that correspond 
+to the `ConsenterMapping` in the configuration block.
+
+
 Upon a configuration update, it will be up to the (Fabric side of the) consensus implementation to validate that:
 
 - The block validation policy matches the required threshold (e.g `2f+1`) of the consensus protocol.
