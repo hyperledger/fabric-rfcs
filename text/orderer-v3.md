@@ -17,7 +17,8 @@ nav_order: 3
 3. [Ordering service framework building blocks](#identifying-building-blocks)
 4. [Ordering service node construction](#connecting-the-pieces-together)
 5. [Orderer to orderer communication and authentication](#orderer-to-orderer-authentication-and-communication)
-6. [Testing](#testing)
+6. [Backward compatibility and upgrade](#backward-compatibility-and-upgrade-from-a-v2-network-to-a-v3-network)
+7. [Implementation Plan and Testing](#implementation-plan-and-testing)
 
 # Summary
 [summary]: #summary
@@ -71,6 +72,44 @@ or making intrusive changes in the official Fabric orderer and peer code base.
 Undoubtedly, an alternative architecture which doesn't require Fabric codebase changes to add support for new 
 consensus protocols would be a sought-after property.
 
+# Removal of deprecated features
+[deprecations]: #removal-of-deprecated-features
+
+Naturally, the Fabric ordering service framework will not contain any consensus specific components.
+However, it should be discussed which consensus implementations that exist today would be re-built with it.
+
+- **Solo**: For the sake of reducing the size of the code to be maintained, the Solo orderer will be discontinued and replaced with deployment of a single Raft orderer.
+- **Kafka**: The Kafka ordering service offers no advantages over the Raft ordering service, and as such, it will not be implemented with the new ordering service framework.
+
+### Removal of system channel
+
+Fabric nodes are multi-tenant and each node can simultaneously be part of multiple Fabric blockchains. 
+Each such a blockchain is termed a "channel" and has its own authentication policies, its own consensus instance and its own ledger.
+
+Peers join to channels by being given channel configuration blocks to bootstrap from.
+Orderers, however, can join channels in two different mechanisms:
+
+- They can be given channel configuration blocks, and join channels in a similar fashion to peers.
+- They can participate in an orderer-only channel, termed the "system channel" which contains transactions that create channels.
+
+The latter mechanism has a significant drawback compared to the former: All ordering nodes must be part of the system channel.
+
+Even though the system channel is usually dormant, its very existence is a severe privacy problem.
+Consider ordering service nodes each run by a different organization: **O1, O2, O3** and participating in three channels:
+A: **O1, O2**
+B: **O2, O3**
+C: **O3, O1***
+
+The very presence of a system channel tells the organization **O2** that **O1** has a business relation with **O3**. 
+Since by definition there can only be a single system channel for an orderer, then it is impossible for a node in **O1** to hide the existence 
+of possible interaction with **O3** because both **O1** and **O3** need to be part of the same system channel that **O2** is part of.
+
+In addition to the aforementioned privacy problem, having two different mechanisms to achieve the same thing only needlessly increases the codebase and complexity.
+
+Therefore, the new ordering service framework will not support a system channel, and as such, Fabric v3 orderers will not have system channels at all.
+As a consequence, before a system channel orderer is to be upgraded to a v3 orderer, the channel participation API needs to be activated beforehand,
+and after the upgrade takes place, joining back to a system channel will no longer be possible.
+
 # Identifying building blocks
 [building-blocks]: #identifying-building-blocks
 
@@ -112,6 +151,25 @@ Therefore, the new organization of the components in the new ordering service no
 The ordering service framework (denoted **B**) refers to all building blocks above which are consensus independent.
 Wrapping around the components of the ordering service framework is a layer (denoted **A**) which is consensus specific 
 and includes the chain management, and the consensus instances (one per channel).
+
+
+
+A lot of the existing components of the ordering service are rather generic and can be re-used.
+
+- **Block replication service**: The blocks are read from the ledger, so the code is orthogonal to how blocks are formed. 
+- **Block synchronization utility**: The current code needs to be copied aside and then restructured to support pulling block attestations.
+- **Communication service**: The current communication infrastructure is generic and can be re-used, however an alternative one will be built (see below).
+- **Ledger subsystem**: The ledger can be completely re-used in all different consensus implementations. 
+- **Channel participation service**: The channel participation is administered via a local administrative API, so it's consensus independent.
+- **Transaction filtering**: The transaction filtering  does not contain any consensus specific logic. Consensus specific orderer logic is to be implemented as a separate layer. 
+- **Membership Service Provider subsystem**: The MSP is a self-contained object which is re-used throughout the Fabric code base and is not dependent on anything else.
+
+However, some components of the ordering service would be gone and would need to be implemented by each consensus specific implementation:
+
+**Chain management**: At a first step, the chain management is not going to be part of the ordering service framework.
+However, when the first implementation of an ordering service that utilizes the framework will be implemented, it will be discussed
+how to extract even that part to be consensus agnostic. The reason is that the current chain management attempts to support multiple consensus implementation,
+as well as support running both with and without the system channel. 
 
 
 
@@ -313,8 +371,24 @@ thus breaking the [CDH assumption](https://en.wikipedia.org/wiki/Computational_D
 In case the responder node is located behind a TLS terminating reverse proxy, it can be configured to ignore the `session_binding` check, 
 but the check will be enabled by default.
 
-# Testing
-[testing]: #testing
+# Backward compatibility and upgrade from a v2 network to a v3 network
+[upgrade]: #backward-compatibility-and-upgrade-from-a-v2-network-to-a-v3-network
+
+A Raft orderer implemented using the new ordering service framework will support the v2 channel configuration.
+This also means that TLS pinning based authentication will still be an optional communication medium, and it will not be mandatory 
+to move to enrollment certificate based authentication.
+
+An upgrade from v2 to v3 will take place by first upgrading the binary, and then activating the v3 capability.
+The latter is needed for the channel configuration schema fields introduced in [the block verification RFC](https://github.com/hyperledger/fabric-rfcs/pull/48) to be used.
+
+# Implementation Plan and Testing
+[impl-testing]: #implementation-plan-and-testing
 
 All new components build will be designed to be testable and stable, and will have unit tests with good code coverage.
-As this RFC deals with building a framework, there are no integration tests to be built, but only unit tests.
+As this RFC deals with building a framework, there are no integration tests to be built, but only additional unit tests.
+
+The Raft ordering service will be re-implemented using the framework, and as such, the existing Raft integration tests will be used
+as a sanity test.
+
+After the work has been completed, any ordering service code that is unrelated to the ordering service framework will be removed from the 
+Fabric main branch. 
