@@ -200,31 +200,38 @@ Which means, the question is equal with modular MSP service?
 | MSP   |
 -------
 | BCCSP |
+-------
+| Crypto curves |
 ```
 In further details, with relationship between MSP and BCCSP.
 for reference, https://github.com/hyperledger/fabric/blob/main/msp/identities.go#L55-L85
 The MSP interface depends on BCCSP interface as implementation.
 https://github.com/hyperledger/fabric/blob/main/msp/mspimpl.go#L42-L106
 also some fix use between MSP package, BCCSP package, and x509 package.
-Hence, we need to
+Hence, with this rfc, we hope to refine interface definition and responsibility.
 ```golang
 | MSP  (response for upper case usage, as get MSP ID etc...) |
 -------
-| BCCSP (response for lower case implementation, as implementation for sign/verify/load certs from file) |
+| BCCSP (plays role as adapter between fabric msp concepts and crypto curves and implementations) |
+-------
+| Crypto curves s as ecdsa/ed25519/others |
 ```
-- [ ] Redefine MSP responsibilities.
-- [ ] Redefine BSSP responsibilities.
-- [ ] Refactor MSP implementation. as making https://github.com/hyperledger/fabric/blob/main/msp/identities.go#L37-L40
-```
-type identity struct {
-	// has a bccsp implementation here instead of two implementations below.
-	// this is the public key of this instance
-	pk bccsp.Key
+- [x] Redefine MSP responsibilities, as it relays on some crypto provide ex BCCSP interface implementation and response for fabric data model on business and logic level.
+- [x] Redefine BCCSP responsibilities, as it relays on crypto library implementation, plays role as adapter interface between MSP and cyrpto library implementations response for fabric data model on implementation level.
 
-	// reference to the MSP that "owns" this identity
-	msp *bccspmsp
-}
-```
+With current investigation, we need to remove `x509` dependency from `msp` package which means, we'd better add a new type of key as cert_key extend key interface in `bccsp` to make `msp` decouple with `x509` interface.
+
+Remove `x509` dependency from `msp` package steps: 
+1. add a cert interface in bccsp
+2. impl import cert function in bccsp for msp creation
+3. impl cert related function one by one from msp to bccsp
+
+a sample commit for new cert structure in bcssp can be found at https://github.com/Hyperledger-TWGC/fabric/pull/19/commits/6b7d0955fa1fcea5f59f6502249ffd7d06c005b8 the second sample commit for decouple msp interface with x509 can be found at https://github.com/Hyperledger-TWGC/fabric/pull/19/commits/78afd370ecc1292a1d16b24be60d84194db7c236
+
+the benefits for this kind of refactor:
+1. When a new crypto curve is considered to be supported in Hyperledger Fabric, we can just make a BCCSP implementation and by addition an option in MSP level to make it. For ex: ed25519
+1. For specific crypto curves, we can also support it by dynamic type, as a binary plugin of BCCSP and a MSP option to enable the binary plugin. For ex: Chinese national crypto curves.
+1. When MSP level interface is considered to add new logic, we don't need to worry it affects exisiting BCCSP logic and how the changes integrate with crypto related packages either bccsp or x509. 
 
 ### Refactor current bccsp with new process logic.
 To make something as classloader in bccsp. There may need to build some global level map in `<type, function>` way. For example with below logic, we can reused `fileks.go` and by reflect, the code will auto switch between crypto logics which added.
