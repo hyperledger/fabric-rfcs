@@ -338,7 +338,7 @@ Without `to_id`, the responder node can authenticate to other nodes on behalf of
 
 The `timestamp` is a timestamp that indicates the freshness of the request, and it needs to be within a margin of the responder's local time.
 
-The `signature` is the signature that is verifiable under the initiator's public key over the ASN1 encoding of `<version, timestamp, from_id, to_id, session_id, channel>`.
+The `signature` is the signature that is verifiable under the initiator's public key over the ASN1 encoding of `<version, timestamp, from_id, to_id, session_binding, channel>`.
 
 The `version` field determines what fields the signature was computed over, and the current version is zero. 
 
