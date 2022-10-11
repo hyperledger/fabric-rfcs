@@ -127,7 +127,7 @@ Each node collects a quorum of `commit` messages and their attached signatures.
 These signatures are later used to notarize the proposal, essentially creating a checkpoint. 
 Upon receiving a quorum of validated `commit` messages, the node delivers its proposal and the signatures to the application layer for storage and processing.
 
-The quorum size is calculated in the following manner: Let `n` be the total number of nodes in the algorithm and denote `f = ((n - 1) / 3)`. Then, the quorum is: `Ceil((N + F + 1) / 2)` where `Ceil` is the ceiling function. In layman's terms, the quorum is the minimal set of nodes such that every two such sets intersect in at least 1 honest node.  
+The quorum size is calculated in the following manner: Let `n` be the total number of nodes in the algorithm and denote `f = ((n - 1) / 3)`. Then, the quorum is: `Ceil((n + f + 1) / 2)` where `Ceil` is the ceiling function. In layman's terms, the quorum is the minimal set of nodes such that every two such sets intersect in at least 1 honest node.  
 
 **View change**:
 The view change protocol is inspired by the _Synchronization Phase_ in this [BFT-SMaRt paper](http://www.di.fc.ul.pt/~bessani/publications/edcc12-modsmart.pdf) (illustrated in the attached figure taken from the BFT-SMaRt paper).
@@ -136,7 +136,7 @@ The view change protocol is comprised of three messages: `ViewChange`, `ViewData
 ![alt text](https://raw.githubusercontent.com/wiki/SmartBFT-Go/consensus/images/viewChange.png)
 
 The `ViewChange` message (the first message) is sent to all nodes by some node who suspects the leader is faulty. This message is very lightweight and includes only the next view sequence number. 
-Once collecting `2f+1` `ViewChange` messages, a non faulty node is convinced that enough nodes consider the leader as faulty, and it will send a `ViewData` message to the next view's leader.
+Once collecting `2f+1` `ViewChange` messages, a non faulty node is convinced that enough nodes consider the leader as faulty, and it will send a `ViewData` message to the next view's leader (in practice, it's the view number modulo the total number of nodes).
 
 The `ViewData` message is similar to the `ViewChange` message suggested by [PBFT](http://pmg.csail.mit.edu/papers/osdi99.pdf). It is signed, as it will serve as proof in the next phase. The message contains the last checkpoint (last decided proposal) and the next proposal, if it exists, with its state (proposed or prepared). 
 However, as opposed to the PBFT `ViewChange` message, the `ViewData` message is sent only to the next leader.
@@ -186,7 +186,7 @@ SubmitRequest(req []byte) error
 The library offloads communication to the application that embeds it, hence it is the responsibility of the application to feed the messages from other nodes, or requests forwarded from other nodes into the library instance:
 
 ````
-HandleMessage(sender uint64, m *Message)
+HandleMessage(sender uint64, m *bft.Message)
 
 HandleRequest(sender uint64, req []byte)
 ````
@@ -200,8 +200,7 @@ Deliver(proposal bft.Proposal, signature []bft.Signature) Reconfig
 The application is free to implement the callback as it sees fit in order to realize its desired functionality. 
 When embedded inside a blockchain application, the proposal would often denote a block constructed by the leader of that round, and the signatures array would contain a quorum of signatures collected by the library from the various nodes. The Reconfig is an object that allows the application to convey to the library to reconfigure itself (for example, to expand or reduce the number of nodes).
 
-**Dependencies**: The library interacts with the external world through the application, by delegating capabilities such as cryptography, communication and storage to the application. 
-The full list of dependencies can be found [here](https://smartbft-go.github.io/godoc/pkg/github.com/SmartBFT-Go/consensus/pkg/api/index.html), and below the important ones are listed:
+**Dependencies**: 
 
 The SmartBFT library delegates interaction with the external world (communication and storage) to the application that consumes it. It also doesn't come with its own signature scheme and also assumes its consumer
 implements it. All such abilities it delegates to the consumer application are termed "dependencies" and their full list can be found [here](https://smartbft-go.github.io/godoc/pkg/github.com/SmartBFT-Go/consensus/pkg/api/index.html).
@@ -286,13 +285,13 @@ Upon a config change, the BFT orderer will ensure that the block verification po
 While a malicious orderer cannot forge a block, it can deprive a peer from blocks. Hence, receiving the stream of blocks from a single orderer exposes the peer to what is called a censorship attack, or a block withholding attack.
 
 A [previous RFC](https://github.com/hyperledger/fabric-rfcs/pull/48) explains at length how this censorship attack is mitigated. 
-In brief, if an orderer suspects it is being censored, it reaches to other orderers and pulls block headers and their corresponding signatures.
-Optionally, once in a while, an orderer may also change the orderer from which it pulls blocks.
-This approach is different than the approach taken in the SmartBFT Fabric fork, where the orderer constantly pulls headers and signatures from several orderers.
+In brief, if an orderer or a peer suspects it is being censored, it reaches to other orderers and pulls block headers and their corresponding signatures.
+Optionally, once in a while, an orderer or a peer may also change the orderer from which it pulls blocks.
+This approach is different than the approach taken in the SmartBFT Fabric fork, where the peer constantly pulls headers and signatures from several orderers.
 The deviation is in order to be computationally efficient, as in overwhelming cases, the orderers will not withhold blocks.
 
 
-## Changes to client SDK
+## Changes to client SDK and Gateway service
 Since orderers can be malicious and thus either drop transactions or never include them in a block when assembling proposals, any client that interacts with the BFT ordering service needs to submit the transaction to all orderers.
 such a change is considered to be trivial and minimal and it is argued that it should be made in every SDK with ease.
 
