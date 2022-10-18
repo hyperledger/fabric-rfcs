@@ -129,6 +129,12 @@ Upon receiving a quorum of validated `commit` messages, the node delivers its pr
 
 The quorum size is calculated in the following manner: Let `n` be the total number of nodes in the algorithm and denote `f = ((n - 1) / 3)`. Then, the quorum is: `Ceil((n + f + 1) / 2)` where `Ceil` is the ceiling function. In layman's terms, the quorum is the minimal set of nodes such that every two such sets intersect in at least 1 honest node.  
 
+For example, with `7` nodes, `n=7` and therefore `f=2` because `(7-1)/3` is `2`. 
+Notice that with `8` nodes, we still have `f=2`, because the division (`/`) is in the integers and not in the real numbers.
+
+With `7` nodes we have an optimal quorum of `5` because it satisfies `2f+1`, but with `8` nodes the quorum is `6`, because `6` is the smallest group size for which two groups intersect with at least a single honest node (because they intersect by four nodes).
+Two groups of only five nodes, may intersect in only two nodes and they may both be malicious since `f=2`. 
+
 **View change**:
 The view change protocol is inspired by the _Synchronization Phase_ in this [BFT-SMaRt paper](http://www.di.fc.ul.pt/~bessani/publications/edcc12-modsmart.pdf) (illustrated in the attached figure taken from the BFT-SMaRt paper).
 The view change protocol is comprised of three messages: `ViewChange`, `ViewData`, and `NewView` (`Stop`, `StopData`, and `Sync` in BFT-SMaRt).
@@ -178,12 +184,12 @@ so overall the storage overhead of the WAL can be kept constant and not depend o
 
  The [SmartBFT library](https://github.com/SmartBFT-Go/consensus) presentes a minimal interface to the application that uses it:
 
-**Input**: To submit requests to be ordered, the application invokes `SubmitRequest` and passes a byte representation of the request.
+**Input**: To submit requests to be ordered, the application that embeds the library (in our case, the Fabric orderer node) invokes `SubmitRequest` and passes a byte representation of the request.
 ````
 SubmitRequest(req []byte) error
 ````
 
-The library offloads communication to the application that embeds it, hence it is the responsibility of the application to feed the messages from other nodes, or requests forwarded from other nodes into the library instance:
+The library offloads communication to the application that embeds it (the Fabric orderer node, in our case), hence it is the responsibility of the application to feed the messages from other nodes, or requests forwarded from other nodes into the library instance:
 
 ````
 HandleMessage(sender uint64, m *bft.Message)
@@ -349,7 +355,7 @@ From an operational perspective, the upgrade process from Raft to BFT will be as
 
 3. The configuration update is wrapped into a transaction and is sent to the ordering service.
 
-4. The Raft chain realizes the consensus type has changed, and the Raft chain goes into standby mode which only allows migration backward to BFT but nothing else.
+4. The Raft chain realizes the consensus type has changed, and the Raft chain goes into standby mode which only allows migration forward to BFT but nothing else.
 
 5. The administrators of the organizations communicate out of band and ensure that the previous step has been made across all nodes on all channels.
 
