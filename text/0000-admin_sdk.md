@@ -1,138 +1,133 @@
 ---
 layout: default
-title: RFC Template
+title: Fabric admin SDK
 nav_order: 3
 ---
 
-- Feature Name: Fabric admin sdk
+- Feature Name: Fabric admin SDK
 - Start Date: 2022-11-11
 - RFC PR: (leave this empty)
-- Fabric Component: core
-- Fabric Issue: I remember there is a plan for decouple peer cli in fabric 3.0 roadmap? ... but I didn't get the open issue on fabric repo for it.
+- Fabric Component: fabric-admin
+- Fabric Issue: (leave this empty)
 
 # Summary
 [summary]: #summary
 
-As we are going to have new gateway sdk and deprecated sdk. Admin capabilities will been deprecated together with sdk. Hence, for BAAS/deployment tools as [fabric-operator](https://github.com/hyperledger-labs/fabric-operator) has to use peer cli to deal with admin capabilities, such as channel creation. We have a full list. [here](https://github.com/Hyperledger-TWGC/fabric-admin-sdk/issues/15)
-Those features will be built on fabric proto and decouple with fabric code, if implemented with golang.
+This RFC proposes a new administrative SDK for Fabric to support implementers of Kubernetes operators, CLI commands, and automated deployment pipelines. The primary target implementation language for this API is Go, with the aim to deliver implementations in the same set of languages as the client application APIs, namely: Go, Node (TypeScript / JavaScript) and Java. Key objectives are to provide consistent capability across all implementation languages, and to avoid any dependency on core Fabric since this is not intended to be consumed as a library.
+
 
 # Motivation
 [motivation]: #motivation
 
-admin capabilities sdk repos basing on coding language as golang, js, java to allow BAAS/deployment tools as [fabric-operator](https://github.com/hyperledger-labs/fabric-operator) able to use those repo instead of invoking peer cli.
+There are two primary motivators for this work:
+
+1. Legacy client application SDKs developed alongside Fabric v1 provide varying levels of administrative capability, and this is relied upon by a subset of the Fabric user base to support automated deployment. Client application APIs developed alongside Fabric v2 focus only on the Fabric programming model, supporting business applications to submit and evaluate transactions, and to receive events. Fabric v2.5 plans to deprecate the legacy SDKs, leaving a gap in support for programmatic deployment of Fabric.
+
+2. The `peer` command provides both the server-side peer and the Fabric CLI implementations. Therefore the CLI commands are tightly coupled to the core Fabric codebase. A new Fabric admin API would provide a cleaner base on which to build Fabric CLI commands, decoupled from the core Fabric codebase.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-- Introducing new named concepts.
-> fabric-admin-sdk or fabric-admin-sdk-{$language}(fabric-admin-sdk-java)
-admin short for admin capabilities.
+The Fabric admin API aims to deliver the following minimum set of capability:
 
-- Explaining the feature largely in terms of examples.
-> [See detail lists here, link to avoid duplication](https://github.com/Hyperledger-TWGC/fabric-admin-sdk/issues/15)
+- Chaincode deployment (using v2 chaincode lifecycle):
+  - Install chaincode
+  - Query installed chaincode
+  - Approve installed chaincode
+  - Query approved chaincode
+  - Commit approved chaincode
+  - Query committed chaincode
 
-- Explaining how Fabric programmers should *think* about the feature, and how
-  it should impact the way they use fabric. It should explain the impact as
-  concretely as possible.
-> for deployment tool or BAAS developers, using this admin-sdk features instead of using CLI.
+- Channel configuration:
+  - Create channel
+  - Join peers
+  - Set anchor peers
 
-- If applicable, provide sample error messages, deprecation warnings, or
-  migration guidance.
-> 1st Done with the admin capabilities features.
-> 2nd as it able to replace peer cli by SDK, decouple peer cli from fabric repo to this repo for build.(parallel for migration)
-> 3rd house keeping in fabric repo.
-
-- If applicable, describe the differences between teaching this to established
-  and new Fabric developers.
-> n/A, well as in general speaking, the admin sdk should reuse all fabric concepts(such as:local MSP) and replace peer cli implementations... at user level there is no difference. 
-> But for BAAS/deployment tool developer, well, it is an alternative of peer cli.
-
-- If applicable, describe any changes that may affect the security of
-  communications or administration.
-> N/A, not applicable.
-
+Additional capability may be included to aid deployment or common configuration tasks, where this does not represent duplication of capability already easily achievable using existing programmatic APIs.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-This is the technical portion of the RFC. Explain the design in sufficient
-detail that:
+The implementation takes the following design approach:
 
-- Its interaction with other features is clear.
-> Decouple peer CLI.
+- Expose a relatively simple API that provides a layer of abstraction around the mechanics of invoking gRPC and HTTP/RESTful services provided by Fabric to achieve administrative tasks.
+- Loose coupling between API implementation and network connection management, allowing the caller to retain control of creation and configuration of network connections.
+- Loose coupling between API and cryptographic implementations, allowing the caller to inject the cryptographic credentials and signing implementation.
+- Consistency of capability across different language implementations while following language idioms.
 
-- It is reasonably clear how the feature would be implemented.
-> base on fabric proto, build language based sdk repos, without fabric code as cross reference for golang.
+The admin SDK interacts with Fabric using only well-defined gRPC services and HTTP/RESTful APIs. To simplify the implementation and provide consistency with current client application APIs, this includes the use of Gateway gRPC services, either directly using gRPC client APIs or using the Fabric Gateway client API.
 
-- Corner cases are dissected by example.
-https://github.com/Hyperledger-TWGC/fabric-admin-sdk
+## Example API methods
+
+There follow some examples of proposed API calls provided by the admin SDK.
+
+### Install chaincode
+
+```go
+func Install(
+    ctx            context.Context,
+    peerConnection grpc.ClientConnInterface,
+    signer         identity.SignerSerializer,
+    packageReader  io.Reader,
+    callOptions    ...grpc.CallOption,
+) error
+```
+
+- `ctx` allows the caller to cancel the operation, either directly or after a timeout period.
+- `peerConnection` caller provided gRPC connection used to make the call, which has been configured appropriately and may be shared between multiple calls.
+- `signer` encapsulates the signing implementation and client credentials.
+- `packageReader` supplies the chaincode package content.
+- `callOptions` are call-specific gRPC options.
+
+### Query installed chaincode
+
+```go
+func QueryInstalled(
+    ctx            context.Context,
+    peerConnection grpc.ClientConnInterface,
+    signer         identity.SignerSerializer,
+    callOptions    ...grpc.CallOption,
+) (*lifecycle.QueryInstalledChaincodesResult, error)
+```
+
+The parameters are common with the proposed install chaincode API. The return value is a protocol buffer message, defined by Fabric and included in [fabric-protos](https://hyperledger.github.io/fabric-protos/).
 
 # Drawbacks
 [drawbacks]: #drawbacks
-n/A
+
+An additional SDK requires additional development effort, support and ongoing maintenance.
+
+While significantly simplifying the implementation and maintenance burden, making use of Gateway gRPC services and/or the Fabric Gateway client API limit use of the admin SDK to Fabric v2.4 and later. The admin capability in legacy SDKs is available for earlier Fabric versions.
 
 # Rationale and alternatives
 [alternatives]: #alternatives
 
-- Why is this design the best in the space of possible designs?
-- What other designs have been considered and what is the rationale for not
-  choosing them?
-- What is the impact of not doing this?
+Administrative tasks are currently possible using the Fabric CLI and an alternative is to continue with them as the only supported administrative tool. However, there is real community interest in programmatic configuration, and community members already actively contributing to an admin SDK implementation. A Go admin SDK dramatically simplifies the development and maintenance effort required to implement both Kubernetes operators and new Fabric CLI commands.
 
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal.
-A few examples of what this can include are:
+Legacy SDKs provide varying levels of admin capability. Their development in entirely separate codebases has naturally led to inconsistency in capability and API design. As part of larger packages, not focused purely on admin tasks, the ongoing maintenance and evolution of their admin capability has become impractical.
 
-- For consensus, global state, transaction processors, and smart contracts
-  implementation proposals: Does this feature exists in other distributed
-  ledgers and what experience have their communities had?
-> n/A
-- For community proposals: Is this done by some other community and what were
-  their experiences with it?
-A sample from TWGC at [here](https://github.com/Hyperledger-TWGC/fabric-admin-sdk), and confirmed with maintainers at [here](https://github.com/Hyperledger-TWGC/fabric-admin-sdk/issues/40) we are all good to contribute this repo to fabric.
-
-- For other teams: What lessons can we learn from what other communities have
-  done here?
-> n/A  
-- Papers: Are there any published papers or great posts that discuss this? If
-  you have some relevant papers to refer to, this can serve as a more detailed
-  theoretical background.
->n/A
-
-This section is intended to encourage you as an author to think about the
-lessons from other distributed ledgers, provide readers of your RFC with
-a fuller picture.  If there is no prior art, that is fine - your ideas are
-interesting to us whether they are brand new or if it is an adaptation.
-
-Note that while precedent set by other distributed ledgers is some motivation,
-it does not on its own motivate an RFC.  Please also take into consideration
-that Fabric sometimes intentionally diverges from common distributed
-ledger/blockchain features.
+Active development on a new admin SDK is taking place at [Hyperledger-TWGC/fabric-admin-sdk](https://github.com/Hyperledger-TWGC/fabric-admin-sdk). This RFC proposes adopting that as the basis of a Hyperledger Fabric admin SDK.
 
 # Testing
 [testing]: #testing
 
-- What kinds of test development and execution will be required in order
-to validate this proposal, beyond the usual mandatory unit tests?
-> https://github.com/Hyperledger-TWGC/fabric-admin-sdk/actions/workflows/golange2e.yml take test-network in fabric sample as a sample, the admin sdk should able to pass all admin capabilities feature tests.
+In additional to typical test-driven development using unit tests for specific language implementations, integration tests will be required to confirm that admin capabilities work correctly with a real Fabric deployment. These integration tests should be fully automated and run as part of the continuous integration pipeline.
 
-- List integration test scenarios which will outline correctness of proposed functionality.
-> Same with above.
-
+Since one of the goals is to provide consistent capability across different language implementations of the admin SDK, it is desirable to run a consistent set of integration tests against each language implementation. One possible approach for achieving this is to produce language-agnostic test definitions that are run against all language implementations. The approach has been used successfully in the [Fabric Gateway client API](https://github.com/hyperledger/fabric-gateway/tree/main/scenario/features) using [Cucumber](https://cucumber.io/) as the test framework.
 
 # Dependencies
 [dependencies]: #dependencies
-n/A
+
+The admin SDK is expected to include [fabric-protos-go-apiv2](https://github.com/hyperledger/fabric-protos-go-apiv2) and possibly also [fabric-gateway](https://github.com/hyperledger/fabric-gateway) as direct dependencies. There will be dependencies on [gRPC](https://grpc.io/) APIs to interact with gRPC services provided by Fabric, both directly and indirectly through the protocol buffer bindings.
+
+Dependencies **must not include** core Fabric, which is not intended to be consumed as a library. Where utilities contained within core Fabric are found to be broadly applicable both in Fabric and the admin SDK (and ideally also in other projects), those utilities could be extracted to a separate project, such as [fabric-lib-go](https://github.com/hyperledger/fabric-lib-go) and [fabric-config](https://github.com/hyperledger/fabric-config).
 
 # Unresolved questions
 [unresolved]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process
-  before this gets merged?
-- What parts of the design do you expect to resolve through the implementation
-  of this feature before stabilization?
-- What related issues do you consider out of scope for this RFC that could be
-  addressed in the future independently of the solution that comes out of this
-  RFC?
+The fine details of the admin API are expected to evolve as capability is implemented as user stories. The end-user usage experience provided by the API in specific scenarios, such as implementation of a Kubernetes operator and automated Fabric deployment, will guide the design and implementation. The intention is to socialize the API with the community throughout the development process to solicit feedback.
+
+While one of the motivators for an admin API is to provide a foundation on which new Fabric CLI commands are built, those CLI commands are out of scope for this RFC.
