@@ -216,38 +216,49 @@ Therefore, Fabric nodes will pick the BFT implementation if either the block val
 Note that overriding the local configuration will only affect protection against block withholding attacks, and cannot impact policy validation.
 Therefore, the in the worst scenario of a misconfiguration, malicious ordereres still cannot forge blocks.
 
-Unlike the SmartBFT implementation, where the `SeekContentType` is expanded to accommodate sending back block attestations, we shall define a new gRPC service that will be serviced by orderers:
+### Block attestation
 
-````
-    // BlockAttestations receives an Envelope of type DELIVER_SEEK_INFO , then sends back a stream of BlockAttestations.
-    rpc BlockAttestations(Envelope) returns (stream BlockAttestationResponse);
-````
+We follow the approach of the SmartBFT implementation. The `SeekInfo` message is augmented with type `enum SeekContentType` and field `SeekContentType content_type = 5;`, as shown below: 
 
-
-
-Put simply, the consumer of the API sends to the service the same message as the block deliver API, but the messages
-received are `BlockAttestationResponse` messages.
-
-
-```
-message BlockAttestationResponse {
-    oneof Type {
-        common.Status status = 1;
-        BlockAttestation block_attestation = 2;
+```protobuf
+message SeekInfo {
+    enum SeekBehavior {
+        BLOCK_UNTIL_READY = 0;
+        FAIL_IF_NOT_READY = 1;
     }
+
+    enum SeekErrorResponse {
+        STRICT = 0;
+        BEST_EFFORT = 1;
+    }
+
+    // <NEW> SeekContentType indicates what type of content to deliver in response to a request. If BLOCK is specified,
+    // the orderer will stream blocks back to the peer. This is the default behavior. If HEADER_WITH_SIG is  specified, the
+    // orderer will stream only a the header and the signature(s), and the payload field will be set to nil. This allows
+    // the requester to ascertain that the respective signed block exists in the orderer (or cluster of orderers).
+    enum SeekContentType {
+        BLOCK = 0;
+        HEADER_WITH_SIG =1;
+    }
+    
+    SeekPosition start = 1;               // The position to start the deliver from
+    SeekPosition stop = 2;                // The position to stop the deliver
+    SeekBehavior behavior = 3;            // The behavior when a missing block is encountered
+    SeekErrorResponse error_response = 4; // How to respond to errors reported to the deliver service
+    SeekContentType content_type = 5;     // <NEW> Defines what type of content to deliver in response to a request
 }
 ```
 
-The `status` is the regular [common.Status](https://github.com/hyperledger/fabric-protos/blob/main/common/common.proto#L15-L25) and the `BlockAttestation` is a block without a block data, and is defined as follows:
-
-```
-message BlockAttestation {
-       BlockHeader header = 1;
-       BlockMetadata metadata = 2;
+When a stream of Header+Signatures is needed from the orderer, the peer (or any other client) will simply set the `ContentType` in the `SeekInfo` message to `HEADER_WITH_SIG`.
+In this case, the orderer will simply set the block data to `nil`.
+```go
+if seekInfo.ContentType == ab.SeekInfo_HEADER_WITH_SIG {
+    block.Data = nil
 }
 ```
+Since a content type of `BLOCK` is the default value, no modification is needed to clients that currently request a stream of blocks.   
 
-
+With this capability in place, a peer can detect block censorship by either (i) periodically and randomly sampling orderers for block attestations, or (ii) continuously asking for block attestations from some subset (or all) of orderers.
 
 ### Block signature verification
 
@@ -332,3 +343,7 @@ All new components build will be designed to be testable and stable, and will ha
 Additionally, until we have a Byzantine Fault Tolerant orderer up and running, integration tests will be made that
 artificially sign Fabric blocks and existing peers will pull them from an artificial endpoint, in order to test the block signature validation code works properly.
 This will also demonstrate the consensus agnosticism of the approach (since no real orderer nor a consensus protocol will be deployed in the test).
+
+# Edit History
+
+- 16 May 2023: Update block attestation implementation to follow the SmartBFT approach.
