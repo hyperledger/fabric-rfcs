@@ -204,7 +204,7 @@ a comment describing the rationale for the decision.
 Some accepted RFCs represent vital changes that need to be implemented right
 away. Other accepted RFCs can represent changes that can wait until a
 developer feels like doing the work. Every accepted RFC has an associated
-issue tracking its implementation in the [Fabric JIRA issue tracker](https://jira.hyperledger.org/projects/FAB/issues).
+issue tracking its implementation in the [Fabric issues](github.com/hyperledger/fabric/issues).
 
 The author of an RFC is not obligated to implement it. Of course, the RFC
 author, as any other developer, is welcome to post an implementation for review
