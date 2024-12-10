@@ -198,12 +198,20 @@ During the RFC discussion, the following concerns were raised about the proposed
 	•	Solution: Introduce explicit APIs for developers to enable and manage batching in their chaincode. This gives developers control over when and how batching is applied, allowing for easier debugging and incremental adoption.
 	•	Implementation: APIs like StartBatch and FinishBatch can provide clear demarcation points for batching operations, ensuring developers understand and control the batching process.
 
-4. Optimizing Interleaved Operations
-
-	•	Solution: Allow partial batching where consecutive writes are batched, and reads or other operations trigger immediate processing of pending batches. This minimizes communication overhead without significantly altering the behavior for interleaved read-write scenarios.
-	•	Implementation: The shim can dynamically manage batches and flush them when necessary, ensuring optimal performance while maintaining behavior consistency.
-
 ## Final Solution
+
+After careful consideration of the various approaches, option #3 - Explicit Developer Control - was selected as the final solution. This choice was made for several key reasons:
+
+1. Safety and Predictability: By giving developers explicit control over batching through dedicated APIs, we minimize the risk of unexpected behavior that could arise from implicit batching mechanisms. Developers can clearly understand and control when batching occurs.
+
+2. Debugging and Observability: The explicit nature of the batching APIs makes it easier to debug issues by providing clear entry and exit points for batched operations. This visibility is crucial for troubleshooting in production environments.
+
+3. Gradual Adoption Path: This approach allows for incremental adoption of the batching feature. Organizations can update their chaincodes at their own pace, testing and validating the performance benefits without forcing a system-wide change.
+
+4. Preservation of Existing Semantics: The explicit APIs ensure that the current chaincode behavior remains unchanged unless specifically opted into batching. This maintains compatibility while still offering performance improvements where desired.
+
+5. Simplified Implementation: Having clear batching boundaries reduces the complexity of managing state consistency and validation checks, as the system knows exactly when batching begins and ends.
+
 
 ### Extend Chaincode Stub API with Explicit Batching APIs
 
@@ -217,7 +225,7 @@ func (stub *ChaincodeStub) StartWriteBatch() {
 
 // FinishWriteBatch flushes the current batch and sends all collected write operations to the peer.
 // Returns a serialized set of results for each operation with the corresponding status.
-func (stub *ChaincodeStub) FinishWriteBatch() ([]BatchResult, error) {
+func (stub *ChaincodeStub) FinishWriteBatch() error {
     // Implementation to process the batched operations.
 }
 ```
@@ -247,17 +255,11 @@ func (t *OnlyPut) put(stub shim.ChaincodeStubInterface, args []string) *pb.Respo
         }
     }
     // Finish batching and send all operations to the peer
-    results, err := stub.FinishWriteBatch()
+    err := stub.FinishWriteBatch()
     if err != nil {
         return shim.Error(err.Error())
     }
 
-    // Process results if necessary
-    for _, result := range results {
-        if !result.Success {
-            return shim.Error(fmt.Sprintf("Operation failed for key: %s", result.Key))
-        }
-    }
     return shim.Success(nil)
 }
 ```
