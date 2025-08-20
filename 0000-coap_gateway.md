@@ -74,6 +74,8 @@ Specifically, it uses:
 
 * `/events` for listening to events
 
+* `/commit-status` for checking transaction commit status
+
 This design simplifies the gateway's logic by reusing the existing gRPC message structures and avoids the complexities of a dynamic mapping system. This ensures the CoAP gateway is a new entry point to existing functionalities without needing format or logic transformations.
 
 A key difference from typical REST endpoints is that these endpoints don't receive JSON strings. Instead, they accept a binary stream encoded with Protobuf, just like the gRPC gateway. This simplifies the resource-to-chaincode mapping by allowing the CoAP gateway to act as a new entry point to existing functionalities without needing format transformations.
@@ -123,7 +125,7 @@ The gateway utilizes the Constrained Application Protocol (CoAP) over Datagram T
 
 ## API Endpoints
 
-The CoAP gateway exposes four main endpoints, each corresponding to a primary function of the Fabric gateway service. Requests and responses use the same protobuf message types as the gRPC service, marshaled into a binary byte array for the CoAP payload.
+The CoAP gateway exposes five main endpoints, each corresponding to a primary function of the Fabric gateway service. Requests and responses use the same protobuf message types as the gRPC service, marshaled into a binary byte array for the CoAP payload.
 
 ### 1. Evaluate Transaction
 
@@ -153,7 +155,9 @@ Used to submit a previously endorsed and client-signed transaction to the orderi
 * **Request Payload**: The body of the CoAP request must contain a marshaled `gateway.SubmitRequest` protobuf message.
 * **Success Response**:
   * **Code**: `2.04 Changed`
-  * **Payload**: The response body is empty, as a successful submission does not return data.
+  * **Payload**: The response body contains a marshaled `gateway.SubmitResponse` protobuf message.
+
+**Note**: The `/submit` endpoint waits for the transaction to be submitted to the ordering service before returning. To check whether the transaction has been committed to the ledger, clients must use the `/commit-status` endpoint.
 
 ### 4. Receive Ledger Events
 
@@ -164,6 +168,16 @@ Used to subscribe to a stream of chaincode events from the ledger. This endpoint
 * **Response Stream**:
   * The server will register the client as an observer and send a success response (`2.05 Content`).
   * Subsequently, as new blocks containing relevant chaincode events are committed to the ledger, the server will push notifications to the client. Each notification will have a `2.05 Content` response code and a payload containing a marshaled `gateway.ChaincodeEventsResponse` message.
+
+### 5. Commit Status
+
+Used to check the status of a previously submitted transaction.
+
+* **Endpoint**: `POST /commit-status`
+* **Request Payload**: The body of the CoAP request must contain a marshaled `gateway.SignedCommitStatusRequest` protobuf message.
+* **Success Response**:
+  * **Code**: `2.05 Content`
+  * **Payload**: The response body contains a marshaled `gateway.CommitStatusResponse` protobuf message.
 
 ## Error Handling
 
@@ -201,6 +215,8 @@ The CoAP gateway will expose REST-like endpoints:
 
 * `/events/{channel}` (GET with Observe option): To subscribe to chaincode events.
 
+* `/commit-status (POST)`: To check the status of previously submitted transactions.
+
 ### Security Model
 
 * Authentication: Based on X.509 certificates, with CA validation and identity mapping to Fabric identities.
@@ -216,7 +232,8 @@ The CoAP gateway will expose REST-like endpoints:
 * **Server** (server.go): Main CoAP server that handles incoming requests on UDP port 5683/5684
 * **Authenticator** (auth.go): Validates X.509 device certificates and checks Fabric ACL permissions
 * **EndorseHandler** (endorse.go): Creates and submits transaction proposals to endorsing peers
-* **SubmitHandler** (submit.go): Submits endorsed transactions to the orderer and waits for commitment
+* **SubmitHandler** (submit.go): Submits endorsed transactions to the orderer
+* **CommitStatusHandler** (commit_status.go): Checks the status of previously submitted transactions
 * **EvaluateHandler** (evaluate.go): Executes chaincode queries without submitting to ledger
 * **EventStreamer** (events.go): Manages CoAP observe subscriptions for chaincode events
 * **ResourceMapper** (mapper.go): Maps CoAP URI paths to specific channel/chaincode/function calls
